@@ -19,6 +19,7 @@ interface EmployeeManagementModalProps {
   onClose: () => void;
   employees: Employee[];
   onUpdateEmployees: (employees: Employee[]) => void;
+  isAdmin?: boolean;
 }
 
 const ROLE_LABELS: Record<EmployeeRole, string> = {
@@ -41,6 +42,7 @@ export const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = (
   onClose,
   employees,
   onUpdateEmployees,
+  isAdmin = false,
 }) => {
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
@@ -62,11 +64,15 @@ export const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = (
   if (!isOpen) return null;
 
   const handleStartAdd = () => {
+    if (!isAdmin) {
+      alert('Only System Administrators (Sayandip Mallick, Nilesh Banik, Soumyajit Chakraborty, Chitrayan Biswas) are authorized to add new employees to the plant roster.');
+      return;
+    }
     setIsAddingNew(true);
     setEditingEmployeeId(null);
     setFormData({
       id: `emp-${Date.now()}`,
-      employeeId: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
+      employeeId: `ME-OPR-${Math.floor(1000 + Math.random() * 9000)}`,
       name: '',
       role: 'CNC_MACHINIST',
       assignedStationId: 'cnc_lathe',
@@ -80,6 +86,10 @@ export const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = (
   };
 
   const handleStartEdit = (emp: Employee) => {
+    if (!isAdmin) {
+      alert('Only System Administrators can edit employee records.');
+      return;
+    }
     setEditingEmployeeId(emp.id);
     setIsAddingNew(false);
     setFormData({ ...emp });
@@ -87,12 +97,13 @@ export const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = (
 
   const handleSaveForm = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) return;
     if (!formData.name?.trim()) return;
 
     if (isAddingNew) {
       const newEmp: Employee = {
         id: formData.id || `emp-${Date.now()}`,
-        employeeId: formData.employeeId || `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
+        employeeId: formData.employeeId || `ME-OPR-${Math.floor(1000 + Math.random() * 9000)}`,
         name: formData.name.trim(),
         role: (formData.role as EmployeeRole) || 'CNC_MACHINIST',
         assignedStationId: formData.assignedStationId || 'ALL',
@@ -124,6 +135,10 @@ export const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = (
   };
 
   const handleDelete = (id: string) => {
+    if (!isAdmin) {
+      alert('Only System Administrators can remove employees.');
+      return;
+    }
     if (confirm('Are you sure you want to remove this employee from the plant roster?')) {
       onUpdateEmployees(employees.filter(e => e.id !== id));
       if (editingEmployeeId === id) setEditingEmployeeId(null);
@@ -156,6 +171,11 @@ export const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = (
                 <span className="text-[10px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-800 px-2 py-0.5 rounded-full">
                   Labor Allocation & Payroll
                 </span>
+                {!isAdmin && (
+                  <span className="text-[10px] font-mono bg-amber-950 text-amber-300 border border-amber-800 px-2 py-0.5 rounded-full">
+                    Read-Only (Admin Restricted)
+                  </span>
+                )}
               </h2>
               <p className="text-xs text-slate-400">
                 Configure plant technicians, machinists, QC inspectors, wage rates, and station assignments
@@ -164,13 +184,15 @@ export const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = (
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleStartAdd}
-              className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Add Employee</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={handleStartAdd}
+                className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Add Employee</span>
+              </button>
+            )}
             <button
               onClick={onClose}
               className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition"
@@ -440,22 +462,26 @@ export const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = (
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => handleStartEdit(emp)}
-                            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded transition"
-                            title="Edit employee details"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(emp.id)}
-                            className="p-1.5 bg-slate-800 hover:bg-rose-950 text-rose-400 rounded transition"
-                            title="Remove from roster"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        {isAdmin ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleStartEdit(emp)}
+                              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded transition"
+                              title="Edit employee details"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(emp.id)}
+                              className="p-1.5 bg-slate-800 hover:bg-rose-950 text-rose-400 rounded transition"
+                              title="Remove from roster"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-500 font-mono">Protected</span>
+                        )}
                       </td>
                     </tr>
                   ))}

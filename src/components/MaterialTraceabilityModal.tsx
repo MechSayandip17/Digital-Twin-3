@@ -245,6 +245,11 @@ export const MaterialTraceabilityModal: React.FC<MaterialTraceabilityModalProps>
                             <div className="text-[10px] font-mono text-slate-400 pl-3.5">
                               {r.barcode || `DT-${r.itemId}`}
                             </div>
+                            {r.assembledFrom && (
+                              <div className="text-[9px] text-cyan-300 font-mono pl-3.5 mt-0.5">
+                                Assembled: {r.assembledFrom.rm1Code}+{r.assembledFrom.rm2Code}+{r.assembledFrom.rm3Code}
+                              </div>
+                            )}
                           </td>
                           <td className="py-2 px-3 text-slate-400 text-[11px] font-mono">{r.lotBatchId}</td>
                           <td className="py-2 px-3">
@@ -291,7 +296,7 @@ export const MaterialTraceabilityModal: React.FC<MaterialTraceabilityModalProps>
                         {isExpanded && (
                           <tr className="bg-slate-950/90">
                             <td colSpan={8} className="p-4 border-y border-slate-800">
-                              <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
+                              <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-3">
                                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                                   <span className="text-xs font-bold text-cyan-300 uppercase tracking-wide flex items-center gap-1.5 font-sans">
                                     <Clock className="w-3.5 h-3.5 text-cyan-400" />
@@ -301,6 +306,33 @@ export const MaterialTraceabilityModal: React.FC<MaterialTraceabilityModalProps>
                                     Total Steps: {r.steps.length} • Total Lead Time: {r.totalLeadTimeSeconds.toFixed(1)}s
                                   </span>
                                 </div>
+
+                                {/* Assembled Constituents Detail */}
+                                {r.assembledFrom && (
+                                  <div className="p-2.5 rounded-lg bg-cyan-950/40 border border-cyan-800/60 text-xs">
+                                    <div className="text-[10px] uppercase font-bold text-cyan-300 tracking-wider flex items-center gap-1 mb-1.5 font-sans">
+                                      <Layers className="w-3.5 h-3.5" />
+                                      Assembled From Raw Material Components (3:1 Synchronous Assembly)
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-[11px]">
+                                      <div className="bg-slate-950 p-2 rounded border border-slate-800">
+                                        <span className="text-slate-400 text-[10px] block font-sans">RM1 Component:</span>
+                                        <strong className="text-cyan-300">{r.assembledFrom.rm1Code}</strong>
+                                        <div className="text-[9px] text-slate-500 font-sans truncate">{r.assembledFrom.rm1Name}</div>
+                                      </div>
+                                      <div className="bg-slate-950 p-2 rounded border border-slate-800">
+                                        <span className="text-slate-400 text-[10px] block font-sans">RM2 Component:</span>
+                                        <strong className="text-indigo-300">{r.assembledFrom.rm2Code}</strong>
+                                        <div className="text-[9px] text-slate-500 font-sans truncate">{r.assembledFrom.rm2Name}</div>
+                                      </div>
+                                      <div className="bg-slate-950 p-2 rounded border border-slate-800">
+                                        <span className="text-slate-400 text-[10px] block font-sans">RM3 Component:</span>
+                                        <strong className="text-amber-300">{r.assembledFrom.rm3Code}</strong>
+                                        <div className="text-[9px] text-slate-500 font-sans truncate">{r.assembledFrom.rm3Name}</div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
 
                                 <div className="space-y-1.5">
                                   {r.steps.map((st, idx) => (

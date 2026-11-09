@@ -27,6 +27,8 @@ interface PlantConfigModalProps {
   onSaveConfig: (updated: Partial<PlantOperationalConfig>) => void;
   onTriggerRandomFailure?: () => void;
   onRepairAll?: () => void;
+  isAdmin?: boolean;
+  onRequestApproval?: (proposal: Partial<PlantOperationalConfig>, title: string, description: string) => void;
 }
 
 export function PlantConfigModal({
@@ -36,6 +38,8 @@ export function PlantConfigModal({
   onSaveConfig,
   onTriggerRandomFailure,
   onRepairAll,
+  isAdmin = true,
+  onRequestApproval,
 }: PlantConfigModalProps) {
   if (!isOpen) return null;
 
@@ -57,7 +61,23 @@ export function PlantConfigModal({
         arrivalHour: parseTimeStringToHour(formData.trucks.rm3.arrivalTimeStr),
       },
     };
-    onSaveConfig({ ...formData, trucks: syncedTrucks });
+
+    const syncedConfig: Partial<PlantOperationalConfig> = {
+      ...formData,
+      trucks: syncedTrucks,
+    };
+
+    if (!isAdmin && onRequestApproval) {
+      onRequestApproval(
+        syncedConfig,
+        'Operational Shift & Machining Parameters Proposal',
+        `Adjusted parameters: Shift ${formData.shiftDurationHours}h, Lathe ${formData.latheCycleTimeMinutes}m, Milling ${formData.millingCycleTimeMinutes}m, Shaping ${formData.shapingCycleTimeMinutes}m, Unloading: ${formData.unloadingMode}`
+      );
+      onClose();
+      return;
+    }
+
+    onSaveConfig(syncedConfig);
     onClose();
   };
 
@@ -1588,10 +1608,18 @@ export function PlantConfigModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3.5 bg-slate-800/80 border-t border-slate-700 flex items-center justify-between">
+        <div className="px-6 py-3.5 bg-slate-800/80 border-t border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="text-xs text-slate-400 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span>All parameter updates reflect in real-time across simulation and telemetry streams.</span>
+            <span className={`w-2 h-2 rounded-full ${isAdmin ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
+            <span>
+              {isAdmin ? (
+                <strong className="text-emerald-300">Admin Authority: Changes apply directly to Digital Twin.</strong>
+              ) : (
+                <span className="text-amber-300">
+                  Parameter edits require verification by an Administrator (Nilesh, Soumyajit, Chitrayan, or Sayandip) before taking effect.
+                </span>
+              )}
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1603,10 +1631,23 @@ export function PlantConfigModal({
             </button>
             <button
               onClick={handleApply}
-              className="px-4 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-900/40 flex items-center gap-1.5 transition"
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-lg ${
+                isAdmin
+                  ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-900/40'
+                  : 'bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-500 hover:to-indigo-500 text-white shadow-amber-900/40'
+              }`}
             >
-              <Check className="w-4 h-4" />
-              <span>Apply Operational Parameters</span>
+              {isAdmin ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>Apply Operational Parameters</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-4 h-4 text-amber-200" />
+                  <span>Submit for Admin Approval</span>
+                </>
+              )}
             </button>
           </div>
         </div>

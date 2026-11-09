@@ -33,6 +33,8 @@ interface FactoryCanvasProps {
   onReset: () => void;
   onOpenPlantConfigModal?: () => void;
   onSelectUnloadingMode?: (mode: 'MANUAL_HUMAN' | 'FORKLIFT' | 'OVERHEAD_CRANE', line?: 'RM1' | 'RM2' | 'RM3') => void;
+  isAdmin?: boolean;
+  onStopBlocked?: () => void;
 }
 
 export const FactoryCanvas: React.FC<FactoryCanvasProps> = ({
@@ -45,10 +47,14 @@ export const FactoryCanvas: React.FC<FactoryCanvasProps> = ({
   onReset,
   onOpenPlantConfigModal,
   onSelectUnloadingMode,
+  isAdmin = true,
+  onStopBlocked,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rootCanvasWrapperRef = useRef<HTMLDivElement>(null);
 
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [viewMode, setViewMode] = useState<'physical' | 'simulink'>('physical');
   const [selectedLineFilter, setSelectedLineFilter] = useState<string>('ALL');
   const [zoomLevel, setZoomLevel] = useState<number>(0.72);
@@ -57,6 +63,28 @@ export const FactoryCanvas: React.FC<FactoryCanvasProps> = ({
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [hoveredStationId, setHoveredStationId] = useState<string | null>(null);
   const [activeUnloadDock, setActiveUnloadDock] = useState<'ALL' | 'RM1' | 'RM2' | 'RM3'>('ALL');
+
+  const toggleFullscreen = () => {
+    if (!isFullscreen) {
+      if (rootCanvasWrapperRef.current?.requestFullscreen) {
+        rootCanvasWrapperRef.current.requestFullscreen().catch(() => {});
+      }
+      setIsFullscreen(true);
+    } else {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+      setIsFullscreen(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
 
   const { stations, entities, timeSeconds, isRunning, simulationSpeed } = simulationState;
 
@@ -206,7 +234,12 @@ export const FactoryCanvas: React.FC<FactoryCanvasProps> = ({
   ]);
 
   return (
-    <div className="relative w-full h-[580px] bg-slate-950 rounded-2xl border border-slate-800 shadow-xl overflow-hidden flex flex-col select-none">
+    <div
+      ref={rootCanvasWrapperRef}
+      className={`relative bg-slate-950 border border-slate-800 shadow-xl overflow-hidden flex flex-col select-none transition-all duration-300 ${
+        isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen rounded-none' : 'w-full h-[580px] rounded-2xl'
+      }`}
+    >
       {/* Top Toolbar */}
       <div className="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
         {/* View Mode & Filter Controls */}
@@ -260,13 +293,25 @@ export const FactoryCanvas: React.FC<FactoryCanvasProps> = ({
         {/* Simulation Playback & Speed Controls */}
         <div className="flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-700/80 shadow-lg pointer-events-auto">
           <button
-            onClick={onTogglePlay}
+            onClick={() => {
+              if (isRunning && !isAdmin) {
+                if (onStopBlocked) onStopBlocked();
+                return;
+              }
+              onTogglePlay();
+            }}
             className={`p-2 rounded-lg font-bold text-xs flex items-center gap-1.5 transition shadow-sm ${
               isRunning
                 ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
                 : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
             }`}
-            title={isRunning ? 'Pause Simulation' : 'Start Real-time Simulation'}
+            title={
+              isRunning
+                ? isAdmin
+                  ? 'Pause Simulation'
+                  : '🔒 Only System Administrators can pause/stop the simulation'
+                : 'Start Real-time Simulation'
+            }
           >
             {isRunning ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
             <span className="hidden sm:inline">{isRunning ? 'Pause' : 'Simulate'}</span>
@@ -281,9 +326,16 @@ export const FactoryCanvas: React.FC<FactoryCanvasProps> = ({
           </button>
 
           <button
-            onClick={onReset}
-            className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition"
-            title="Reset Simulation Entities"
+            onClick={() => {
+              if (isAdmin) onReset();
+            }}
+            disabled={!isAdmin}
+            className={`p-2 rounded-lg transition ${
+              isAdmin
+                ? 'text-slate-300 hover:text-white hover:bg-slate-800'
+                : 'text-slate-600 opacity-40 cursor-not-allowed'
+            }`}
+            title={isAdmin ? 'Reset Simulation Entities' : '🔒 Resetting simulation is restricted to System Administrators'}
           >
             <RotateCcw className="w-4 h-4" />
           </button>
@@ -308,94 +360,13 @@ export const FactoryCanvas: React.FC<FactoryCanvasProps> = ({
             ))}
           </div>
 
-          {/* 3 Unloader Modes Quick Toggle with per-dock selection */}
-          {onSelectUnloadingMode && (() => {
-            const currentActiveMode =
-              activeUnloadDock === 'RM1'
-                ? (simulationState.config.trucks.rm1.unloadingMode ?? 'MANUAL_HUMAN')
-                : activeUnloadDock === 'RM2'
-                ? (simulationState.config.trucks.rm2.unloadingMode ?? 'FORKLIFT')
-                : activeUnloadDock === 'RM3'
-                ? (simulationState.config.trucks.rm3.unloadingMode ?? 'OVERHEAD_CRANE')
-                : (simulationState.config.unloadingMode ?? 'MANUAL_HUMAN');
-
-            return (
-              <>
-                <div className="h-4 w-px bg-slate-800 mx-0.5" />
-                <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 rounded-lg border border-slate-800">
-                  {/* Dock Selector */}
-                  <div className="flex items-center bg-slate-900 rounded p-0.5 border border-slate-800/60 text-[10px]">
-                    {(['ALL', 'RM1', 'RM2', 'RM3'] as const).map(dock => (
-                      <button
-                        key={dock}
-                        type="button"
-                        onClick={() => setActiveUnloadDock(dock)}
-                        className={`px-1.5 py-0.5 rounded font-mono font-bold transition ${
-                          activeUnloadDock === dock
-                            ? 'bg-cyan-500/30 text-cyan-200 border border-cyan-400/40 shadow-xs'
-                            : 'text-slate-400 hover:text-slate-200'
-                        }`}
-                        title={dock === 'ALL' ? 'Control all 3 truck unloading bays together' : `Configure Truck Unloading ${dock}`}
-                      >
-                        {dock}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Mode Buttons */}
-                  <div className="flex items-center gap-0.5">
-                    <button
-                      type="button"
-                      onClick={() => onSelectUnloadingMode('MANUAL_HUMAN', activeUnloadDock === 'ALL' ? undefined : activeUnloadDock)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition ${
-                        currentActiveMode === 'MANUAL_HUMAN'
-                          ? 'bg-cyan-600 text-white font-bold shadow-sm'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                      title={`Set ${activeUnloadDock === 'ALL' ? 'all docks' : activeUnloadDock} to Barehand manual crew`}
-                    >
-                      <span>👷</span>
-                      <span className="hidden md:inline">Barehand</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onSelectUnloadingMode('FORKLIFT', activeUnloadDock === 'ALL' ? undefined : activeUnloadDock)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition ${
-                        currentActiveMode === 'FORKLIFT'
-                          ? 'bg-amber-600 text-white font-bold shadow-sm'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                      title={`Set ${activeUnloadDock === 'ALL' ? 'all docks' : activeUnloadDock} to Forklift truck`}
-                    >
-                      <span>🚜</span>
-                      <span className="hidden md:inline">Forklift</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onSelectUnloadingMode('OVERHEAD_CRANE', activeUnloadDock === 'ALL' ? undefined : activeUnloadDock)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition ${
-                        currentActiveMode === 'OVERHEAD_CRANE'
-                          ? 'bg-indigo-600 text-white font-bold shadow-sm'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                      title={`Set ${activeUnloadDock === 'ALL' ? 'all docks' : activeUnloadDock} to Crane gantry`}
-                    >
-                      <span>🏗️</span>
-                      <span className="hidden md:inline">Crane</span>
-                    </button>
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-
           {onOpenPlantConfigModal && (
             <>
               <div className="h-4 w-px bg-slate-800 mx-0.5" />
               <button
                 onClick={onOpenPlantConfigModal}
                 className="px-2.5 py-1 bg-cyan-950/80 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-700/80 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
-                title="Configure 8-hour shift, truck arrival window, barehand unloading, and cycle times"
+                title="Configure 8-hour shift, truck arrival window, barehand/forklift/crane unloading, and cycle times"
               >
                 <span>Shift & Logistics</span>
               </button>
@@ -404,7 +375,7 @@ export const FactoryCanvas: React.FC<FactoryCanvasProps> = ({
 
           <div className="h-4 w-px bg-slate-800 mx-0.5" />
 
-          {/* Zoom controls */}
+          {/* Zoom & Fullscreen controls */}
           <div className="flex items-center gap-0.5">
             <button
               onClick={() => setZoomLevel(z => Math.max(0.4, z - 0.1))}
@@ -432,6 +403,23 @@ export const FactoryCanvas: React.FC<FactoryCanvasProps> = ({
               title="Reset View"
             >
               <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Expand to Full Screen */}
+            <div className="h-3 w-px bg-slate-800 mx-0.5" />
+            <button
+              onClick={toggleFullscreen}
+              className={`p-1.5 rounded transition flex items-center gap-1 ${
+                isFullscreen
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  : 'text-cyan-400 hover:text-white hover:bg-slate-800'
+              }`}
+              title={isFullscreen ? 'Exit Fullscreen' : 'Expand Physical Plant Twin to Full Screen'}
+            >
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              <span className="text-[10px] font-semibold hidden md:inline">
+                {isFullscreen ? 'Exit Fullscreen' : 'Full Screen'}
+              </span>
             </button>
           </div>
         </div>

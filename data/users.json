@@ -19,7 +19,84 @@
       "ADMIN_VERIFY",
       "ERP_MRP_CONFIG",
       "FINANCIAL_ADMIN",
-      "RESET_SIM"
+      "RESET_SIM",
+      "STOP_SIMULATION",
+      "APPROVE_PARAMETER_CHANGES"
+    ]
+  },
+  {
+    "id": "usr-admin-nilesh",
+    "email": "nilesh.banik@mech.iiests.ac.in",
+    "password": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+    "name": "Nilesh Banik",
+    "badgeId": "2023MEB003",
+    "role": "SYSTEM_ADMIN",
+    "roleTitle": "System Administrator & Reliability Lead",
+    "organisationId": "iiests-mech",
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "department": "Advanced Manufacturing Directorate",
+    "status": "APPROVED",
+    "createdAt": "2026-11-01T08:00:00Z",
+    "approvedAt": "2026-11-01T08:00:00Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com",
+    "permissions": [
+      "ALL_PERMISSIONS",
+      "ADMIN_VERIFY",
+      "ERP_MRP_CONFIG",
+      "FINANCIAL_ADMIN",
+      "RESET_SIM",
+      "STOP_SIMULATION",
+      "APPROVE_PARAMETER_CHANGES"
+    ]
+  },
+  {
+    "id": "usr-admin-soumyajit",
+    "email": "soumyajit.chakraborty@mech.iiests.ac.in",
+    "password": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+    "name": "Soumyajit Chakraborty",
+    "badgeId": "2023MEB015",
+    "role": "SYSTEM_ADMIN",
+    "roleTitle": "System Administrator & Operations Architect",
+    "organisationId": "iiests-mech",
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "department": "Advanced Manufacturing Directorate",
+    "status": "APPROVED",
+    "createdAt": "2026-11-01T08:00:00Z",
+    "approvedAt": "2026-11-01T08:00:00Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com",
+    "permissions": [
+      "ALL_PERMISSIONS",
+      "ADMIN_VERIFY",
+      "ERP_MRP_CONFIG",
+      "FINANCIAL_ADMIN",
+      "RESET_SIM",
+      "STOP_SIMULATION",
+      "APPROVE_PARAMETER_CHANGES"
+    ]
+  },
+  {
+    "id": "usr-admin-chitrayan",
+    "email": "chitrayan.biswas@mech.iiests.ac.in",
+    "password": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+    "name": "Chitrayan Biswas",
+    "badgeId": "2023MEB019",
+    "role": "SYSTEM_ADMIN",
+    "roleTitle": "System Administrator & Quality Governor",
+    "organisationId": "iiests-mech",
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "department": "Advanced Manufacturing Directorate",
+    "status": "APPROVED",
+    "createdAt": "2026-11-01T08:00:00Z",
+    "approvedAt": "2026-11-01T08:00:00Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com",
+    "permissions": [
+      "ALL_PERMISSIONS",
+      "ADMIN_VERIFY",
+      "ERP_MRP_CONFIG",
+      "FINANCIAL_ADMIN",
+      "RESET_SIM",
+      "STOP_SIMULATION",
+      "APPROVE_PARAMETER_CHANGES"
     ]
   },
   {

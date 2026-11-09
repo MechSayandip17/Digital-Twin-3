@@ -65,41 +65,56 @@ import {
   LogOut,
   Boxes,
   UserCheck,
+  ShieldCheck,
+  ShieldAlert,
+  XCircle,
+  Check,
 } from 'lucide-react';
 import { OperatorLoginPortal } from './components/OperatorLoginPortal';
-import { AuthSession, OperatorProfile, TwinEnvironment, OrganisationRecord, PRECONFIGURED_OPERATORS } from './types/auth';
+import {
+  AuthSession,
+  OperatorProfile,
+  TwinEnvironment,
+  OrganisationRecord,
+  PRECONFIGURED_OPERATORS,
+  DESIGNATED_ADMINS,
+  ParameterChangeRequest,
+} from './types/auth';
 import { EntityInspectionModal, InspectableStationId } from './components/EntityInspectionModal';
 import { apiClient } from './services/apiClient';
 
 export default function App() {
   const [simulationState, setSimulationState] = useState<PlantSimulationState>(() => {
     try {
-      const todayStr = getTodayCalendarDateString();
-      const savedFull = localStorage.getItem('aerotwin_saved_simulation_full');
+      // Determine active tenant organization to load isolated progress
+      let activeOrgId = 'iiests-mech';
+      try {
+        const savedSession = localStorage.getItem('digiTwin_auth_session');
+        if (savedSession) {
+          const parsedSession = JSON.parse(savedSession);
+          if (parsedSession?.operator?.organisationId) {
+            activeOrgId = parsedSession.operator.organisationId;
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      // Check tenant-isolated state first, then fallback to global saved state
+      const tenantKey = `aerotwin_tenant_state_${activeOrgId}`;
+      const savedTenant = localStorage.getItem(tenantKey);
+      const savedFull = savedTenant || localStorage.getItem('aerotwin_saved_simulation_full');
+
       if (savedFull) {
         const parsed = JSON.parse(savedFull);
         if (parsed && parsed.stations && parsed.config) {
-          // If stored state is from an old date or has old mock multi-day history, refresh date and reset to Day 1
-          if (parsed.config.simulatedDate !== todayStr || (parsed.performanceHistory && parsed.performanceHistory.length > 2)) {
-            parsed.config.simulatedDate = todayStr;
-            parsed.config.simulatedDayCount = 1;
-            parsed.config.arrearsUnits = 0;
-            parsed.performanceHistory = createDefaultPerformanceHistory(1, todayStr, parsed.config.dailyTargetUnits || 120, 0, 0);
-          }
-          if (Array.isArray(parsed.itemLifecycleLedger)) {
-            parsed.itemLifecycleLedger = parsed.itemLifecycleLedger.filter(
-              (r: any) => !r.lotBatchId?.includes('20250228') && !r.lotBatchId?.includes('20261103')
-            );
-          }
+          // Progress must NOT disappear on page reload: retain exact state, day count, completed items, arrears, and stations
           return parsed;
         }
       }
       const saved = localStorage.getItem('aerotwin_plant_config');
       if (saved) {
         const parsed = JSON.parse(saved);
-        parsed.simulatedDate = todayStr;
-        parsed.simulatedDayCount = 1;
-        parsed.arrearsUnits = 0;
         return createInitialPlantState(parsed, false);
       }
     } catch {
@@ -161,6 +176,23 @@ export default function App() {
     };
   });
 
+  const [isApprovalsModalOpen, setIsApprovalsModalOpen] = useState(false);
+  const [changeRequests, setChangeRequests] = useState<ParameterChangeRequest[]>([]);
+
+  // Load change requests for admin review
+  const loadChangeRequests = async () => {
+    try {
+      const list = await apiClient.getChangeRequests();
+      setChangeRequests(list);
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    loadChangeRequests();
+  }, []);
+
   const handleLogin = async (operator: OperatorProfile, environment: TwinEnvironment, organisation?: OrganisationRecord) => {
     const orgName = organisation?.name || operator.organisation || 'Mechanical Engg. Dept., IIESTS';
     const orgId = organisation?.id || operator.organisationId || 'iiests-mech';
@@ -175,22 +207,57 @@ export default function App() {
     setAuthSession(session);
     try {
       localStorage.setItem('digiTwin_auth_session', JSON.stringify(session));
-      // Load remote tenant database state if available
+      // First check local tenant isolation database
+      const localTenant = localStorage.getItem(`aerotwin_tenant_state_${orgId}`);
+      if (localTenant) {
+        const parsedLocal = JSON.parse(localTenant);
+        if (parsedLocal && parsedLocal.stations && parsedLocal.config) {
+          setSimulationState(parsedLocal);
+        }
+      }
+      // Then check remote tenant database
       const remote = await apiClient.loadTenantState(orgId);
-      if (remote && remote.stations && remote.config) {
-        setSimulationState(remote);
+      const stateToLoad = (remote && remote.stations && remote.config) ? remote : (remote?.state?.stations ? remote.state : null);
+      if (stateToLoad) {
+        setSimulationState(stateToLoad);
       }
     } catch {
       // ignore
     }
   };
 
-  // Auto-save tenant simulation state to multi-tenant database
+  // 4 Designated Super-Admins: Sayandip Mallick, Nilesh Banik, Soumyajit Chakraborty, Chitrayan Biswas
+  const isAdmin = useMemo(() => {
+    if (!authSession.isAuthenticated || !authSession.operator) return false;
+    const op = authSession.operator;
+    if (op.role === 'SYSTEM_ADMIN') return true;
+    const badge = op.badgeId?.toUpperCase().trim();
+    const email = op.email?.toLowerCase().trim();
+    return (
+      badge === 'CHIEF-ENG-01' ||
+      badge === '2023MEB003' ||
+      badge === '2023MEB015' ||
+      badge === '2023MEB019' ||
+      email === 'sayandipmallickclassf@gmail.com' ||
+      email === 'rumapolosaha@gmail.com' ||
+      email === 'nilesh.banik@mech.iiests.ac.in' ||
+      email === 'soumyajit.chakraborty@mech.iiests.ac.in' ||
+      email === 'chitrayan.biswas@mech.iiests.ac.in'
+    );
+  }, [authSession]);
+
+  // Auto-save tenant simulation state to multi-tenant database & tenant-isolated localStorage
   useEffect(() => {
     if (!authSession.isAuthenticated || !authSession.operator?.organisationId) return;
+    const orgId = authSession.operator.organisationId;
     const timer = setTimeout(() => {
-      apiClient.saveTenantState(authSession.operator.organisationId, simulationState);
-    }, 10000);
+      try {
+        localStorage.setItem(`aerotwin_tenant_state_${orgId}`, JSON.stringify(simulationState));
+        apiClient.saveTenantState(orgId, simulationState);
+      } catch {
+        // ignore
+      }
+    }, 2000);
     return () => clearTimeout(timer);
   }, [simulationState, authSession]);
 
@@ -210,9 +277,42 @@ export default function App() {
     }
   };
 
+  // Handle parameter proposals from non-admin operators
+  const handleParameterApprovalRequest = async (changes: Partial<any>, reason: string) => {
+    const res = await apiClient.submitChangeRequest({
+      requesterName: authSession.operator.name,
+      requesterBadge: authSession.operator.badgeId,
+      requesterEmail: authSession.operator.email,
+      organisationId: authSession.operator.organisationId,
+      proposedChanges: changes,
+      reason: reason || 'Operational parameter adjustment proposal',
+    });
+    if (res.success) {
+      setSweepToast('Proposal Submitted: Changes sent for System Administrator approval.');
+      loadChangeRequests();
+    } else {
+      setSweepToast(`Submission error: ${res.error || 'Failed to submit proposal'}`);
+    }
+  };
+
+  // Admin approves or rejects proposal
+  const handleReviewProposal = async (requestId: string, approved: boolean) => {
+    const targetReq = changeRequests.find(r => r.id === requestId);
+    const res = await apiClient.reviewChangeRequest(requestId, approved, authSession.operator.email);
+    if (approved && targetReq) {
+      setSimulationState(prev => ({
+        ...prev,
+        config: { ...prev.config, ...targetReq.proposedChanges },
+      }));
+      setSweepToast(`Proposal Approved: Changes applied to ${authSession.operator.organisation} twin!`);
+    } else {
+      setSweepToast(`Proposal ${approved ? 'approved' : 'rejected'}.`);
+    }
+    await loadChangeRequests();
+  };
+
   // Station Entity Inspection Modal State
   const [inspectionStationId, setInspectionStationId] = useState<InspectableStationId | null>(null);
-
 
   // Real-time Plant Energy Analytics (active machine states, spindle RPMs, cooling systems)
   const plantEnergyAnalytics = useMemo(() => {
@@ -259,14 +359,24 @@ export default function App() {
       try {
         localStorage.setItem('aerotwin_saved_simulation_full', JSON.stringify(simulationState));
         localStorage.setItem('aerotwin_plant_config', JSON.stringify(simulationState.config));
+        if (authSession.operator?.organisationId) {
+          localStorage.setItem(`aerotwin_tenant_state_${authSession.operator.organisationId}`, JSON.stringify(simulationState));
+        }
       } catch {
         // ignore storage/quota errors
       }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [simulationState]);
+  }, [simulationState, authSession]);
 
   const handleTogglePlay = () => {
+    // Only designated admins can stop/pause the simulation
+    if (simulationState.isRunning && !isAdmin) {
+      setSweepToast(
+        'Action Blocked: Only authorized System Administrators (Sayandip Mallick, Nilesh Banik, Soumyajit Chakraborty, Chitrayan Biswas) can stop the digital twin simulation.'
+      );
+      return;
+    }
     setSimulationState(prev => ({ ...prev, isRunning: !prev.isRunning }));
   };
 
@@ -279,8 +389,14 @@ export default function App() {
   };
 
   const handleReset = () => {
-    // Preserve customized operational shift and logistics parameters across resets,
-    // while strictly resetting beginning day to present day of calendar, arrears backlog to 0, Day 1!
+    // Only designated admins can reset the simulation
+    if (!isAdmin) {
+      setSweepToast(
+        'Reset Blocked: Only authorized System Administrators can reset the digital twin simulation. Employees may submit parameter changes for admin approval.'
+      );
+      return;
+    }
+
     setSimulationState(prev => {
       const todayStr = getTodayCalendarDateString();
       const resetConfig = {
@@ -298,6 +414,9 @@ export default function App() {
       const next = createInitialPlantState(resetConfig, false);
       try {
         localStorage.removeItem('aerotwin_saved_simulation_full');
+        if (authSession.operator?.organisationId) {
+          localStorage.removeItem(`aerotwin_tenant_state_${authSession.operator.organisationId}`);
+        }
         localStorage.setItem('aerotwin_plant_config', JSON.stringify(next.config));
       } catch {
         // ignore storage errors
@@ -663,6 +782,26 @@ export default function App() {
             <span className="md:hidden">Guide</span>
           </button>
 
+          {/* Admin Governance & Parameter Approvals Modal Trigger */}
+          <button
+            onClick={() => { loadChangeRequests(); setIsApprovalsModalOpen(true); }}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow border ${
+              isAdmin
+                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white border-indigo-400/50'
+                : 'bg-slate-800 hover:bg-slate-700 text-indigo-300 border-indigo-500/40'
+            }`}
+            title="Designated Admin Governance & Parameter Change Proposals"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Admin Approvals</span>
+            <span className="sm:hidden">Admin</span>
+            {changeRequests.filter(r => r.status === 'PENDING_ADMIN_APPROVAL').length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-slate-950 font-bold animate-pulse">
+                {changeRequests.filter(r => r.status === 'PENDING_ADMIN_APPROVAL').length}
+              </span>
+            )}
+          </button>
+
           {/* Operator Profile Chip & Sign Out */}
           <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800 px-2 py-1 rounded-xl">
             <div className="flex items-center gap-1.5 text-xs">
@@ -688,6 +827,22 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {/* Sweep Toast / Admin Guard Banner */}
+      {sweepToast && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 max-w-xl w-[92%] bg-slate-900 border border-amber-500/80 rounded-xl px-4 py-3 text-amber-200 text-xs shadow-2xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>{sweepToast}</span>
+          </div>
+          <button
+            onClick={() => setSweepToast(null)}
+            className="text-slate-400 hover:text-white px-2 py-0.5 rounded hover:bg-slate-800 text-xs font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 p-3 sm:p-4 max-w-7xl w-full mx-auto space-y-4 overflow-x-hidden">
@@ -1068,6 +1223,12 @@ export default function App() {
             onReset={handleReset}
             onOpenPlantConfigModal={() => setIsConfigModalOpen(true)}
             onSelectUnloadingMode={handleSelectUnloadingMode}
+            isAdmin={isAdmin}
+            onStopBlocked={() =>
+              setSweepToast(
+                'Action Blocked: Only authorized System Administrators (Sayandip Mallick, Nilesh Banik, Soumyajit Chakraborty, Chitrayan Biswas) can stop the digital twin simulation.'
+              )
+            }
           />
         </section>
 
@@ -1666,6 +1827,7 @@ export default function App() {
         onClose={() => setIsEmployeeModalOpen(false)}
         employees={employees}
         onUpdateEmployees={handleUpdateEmployees}
+        isAdmin={isAdmin}
       />
 
       {/* AI Plant Diagnostics Chatbot Modal */}
@@ -1708,7 +1870,141 @@ export default function App() {
         onSaveConfig={handleSaveConfig}
         onTriggerRandomFailure={handleRandomizeFailure}
         onRepairAll={handleRepairAll}
+        isAdmin={isAdmin}
+        onRequestApproval={handleParameterApprovalRequest}
       />
+
+      {/* Admin Governance & Parameter Change Proposals Modal */}
+      {isApprovalsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col text-slate-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-800 bg-slate-950/90 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-600 rounded-xl text-white">
+                  <ShieldCheck className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    Admin Governance & Parameter Proposals
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Active Profile: <strong className="text-slate-200">{authSession.operator.name}</strong> ({authSession.operator.badgeId}) • {isAdmin ? <span className="text-emerald-400 font-bold">Authorized Admin</span> : <span className="text-amber-400">Operator Access</span>}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsApprovalsModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-4">
+              {/* 4 Designated Super-Admins Directory */}
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <div className="text-xs font-bold text-slate-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-cyan-400" />
+                    4 Designated System Administrators
+                  </span>
+                  <span className="text-[10px] font-mono text-cyan-400">Authorized: Stop/Reset/Edit/Approve</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  {DESIGNATED_ADMINS.map(admin => (
+                    <div key={admin.badgeId} className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+                      <div className="min-w-0 pr-2">
+                        <div className="font-bold text-white text-[11px] truncate">{admin.name}</div>
+                        <div className="text-[10px] text-slate-400 font-mono truncate">{admin.badgeId} • {admin.email}</div>
+                      </div>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700 font-mono font-bold shrink-0">
+                        ADMIN
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pending Parameter Change Proposals List */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    Pending Proposals ({changeRequests.filter(r => r.status === 'PENDING_ADMIN_APPROVAL').length})
+                  </span>
+                  <button onClick={loadChangeRequests} className="text-cyan-400 hover:underline text-[11px]">
+                    Refresh
+                  </button>
+                </div>
+
+                {changeRequests.filter(r => r.status === 'PENDING_ADMIN_APPROVAL').length === 0 ? (
+                  <div className="py-8 text-center border border-dashed border-slate-800 rounded-xl text-slate-400 text-xs">
+                    <CheckCircle2 className="w-8 h-8 mx-auto text-emerald-400 mb-2 opacity-80" />
+                    <p className="font-semibold text-slate-200">No Pending Parameter Change Proposals</p>
+                    <p className="text-slate-500 text-[11px] mt-0.5">
+                      When plant operators submit changes from Shift & Logistics, proposals will appear here for admin review.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {changeRequests
+                      .filter(r => r.status === 'PENDING_ADMIN_APPROVAL')
+                      .map(req => (
+                        <div
+                          key={req.id}
+                          className="p-3.5 rounded-xl bg-slate-950 border border-amber-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-white text-xs">{req.requesterName}</span>
+                              <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-cyan-300">
+                                {req.requesterBadge}
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-mono">
+                                {new Date(req.createdAt || req.timestamp || Date.now()).toLocaleTimeString()}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-300 font-mono">
+                              Parameters: <strong className="text-cyan-300">{Object.keys(req.proposedChanges || req.proposedConfigChanges || {}).join(', ')}</strong>
+                            </div>
+                            {req.reason && (
+                              <div className="text-[10px] text-slate-400 italic">
+                                "{req.reason}"
+                              </div>
+                            )}
+                          </div>
+
+                          {isAdmin ? (
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={() => handleReviewProposal(req.id, true)}
+                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 shadow transition"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Approve</span>
+                              </button>
+                              <button
+                                onClick={() => handleReviewProposal(req.id, false)}
+                                className="px-2.5 py-1.5 rounded-lg bg-rose-900/60 hover:bg-rose-800 text-rose-200 text-xs flex items-center gap-1 border border-rose-700 transition"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span>Reject</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-amber-400 bg-amber-950/40 border border-amber-800 px-2.5 py-1 rounded-lg">
+                              Awaiting Super-Admin Approval
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Daily Shift Summary Report Modal */}
       <ShiftSummaryModal

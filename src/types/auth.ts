@@ -68,20 +68,137 @@ export const ADMIN_EMAIL = 'sayandipmallickclassf@gmail.com';
 export const DEFAULT_ORG_ID = 'iiests-mech';
 export const DEFAULT_ORG_NAME = 'Mechanical Engg. Dept., IIESTS';
 
-export const PRECONFIGURED_OPERATORS: OperatorProfile[] = [
+export interface AdminRecord {
+  id: string;
+  name: string;
+  rollNumber: string;
+  badgeId: string;
+  email: string;
+  roleTitle: string;
+  canEditAnything: true;
+}
+
+export const DESIGNATED_ADMINS: AdminRecord[] = [
   {
-    id: 'op-admin',
+    id: 'admin-me',
+    name: 'Sayandip Mallick (Chief Admin)',
+    rollNumber: 'CHIEF-ENG',
+    badgeId: 'CHIEF-ENG-01',
     email: 'sayandipmallickclassf@gmail.com',
-    name: 'Chief Engineer & System Admin',
+    roleTitle: 'Chief Engineer & Lead System Administrator',
+    canEditAnything: true,
+  },
+  {
+    id: 'admin-nilesh',
+    name: 'Nilesh Banik',
+    rollNumber: '2023MEB003',
+    badgeId: '2023MEB003',
+    email: 'nilesh.banik@mech.iiests.ac.in',
+    roleTitle: 'System Administrator & Reliability Lead',
+    canEditAnything: true,
+  },
+  {
+    id: 'admin-soumyajit',
+    name: 'Soumyajit Chakraborty',
+    rollNumber: '2023MEB015',
+    badgeId: '2023MEB015',
+    email: 'soumyajit.chakraborty@mech.iiests.ac.in',
+    roleTitle: 'System Administrator & Operations Architect',
+    canEditAnything: true,
+  },
+  {
+    id: 'admin-chitrayan',
+    name: 'Chitrayan Biswas',
+    rollNumber: '2023MEB019',
+    badgeId: '2023MEB019',
+    email: 'chitrayan.biswas@mech.iiests.ac.in',
+    roleTitle: 'System Administrator & Quality Governor',
+    canEditAnything: true,
+  },
+];
+
+export interface ParameterChangeRequest {
+  id: string;
+  requestedByUserId?: string;
+  requestedByName: string;
+  requestedByRole?: string;
+  requestedByBadge: string;
+  requesterName?: string;
+  requesterBadge?: string;
+  requesterEmail?: string;
+  organisationId: string;
+  organisationName?: string;
+  timestamp?: number;
+  timestampStr?: string;
+  createdAt?: string;
+  title?: string;
+  category?: 'SHIFT_LOGISTICS' | 'CYCLE_TIMES' | 'QC_TOLERANCES' | 'STATION_CONFIG' | 'UNLOADING_MODE' | 'CONVEYOR_DISPATCH';
+  description?: string;
+  reason?: string;
+  status: 'PENDING_ADMIN_APPROVAL' | 'APPROVED' | 'REJECTED';
+  proposedChanges?: Record<string, any>;
+  proposedConfigChanges?: Record<string, any>;
+  proposedStationChanges?: { stationId: string; changes: Record<string, any> };
+  reviewedByAdmin?: string;
+  reviewedAt?: string;
+  rejectionNote?: string;
+}
+
+export const PRECONFIGURED_OPERATORS: OperatorProfile[] = [
+  // 1. The 4 Designated System Administrators (Full edit/change/approve authority)
+  {
+    id: 'admin-me',
+    email: 'sayandipmallickclassf@gmail.com',
+    name: 'Sayandip Mallick (Chief Admin)',
     badgeId: 'CHIEF-ENG-01',
     role: 'SYSTEM_ADMIN',
-    roleTitle: 'Chief Engineer & Digital Twin Architect',
+    roleTitle: 'Chief Engineer & Lead System Administrator',
     organisationId: 'iiests-mech',
     organisation: 'Mechanical Engg. Dept., IIESTS',
-    department: 'Advanced Manufacturing & Digital Twin Directorate',
-    permissions: ['ALL_PERMISSIONS', 'ADMIN_VERIFY', 'ERP_MRP_CONFIG', 'FINANCIAL_ADMIN', 'RESET_SIM'],
+    department: 'Advanced Manufacturing Directorate',
+    permissions: ['ALL_PERMISSIONS', 'ADMIN_VERIFY', 'ERP_MRP_CONFIG', 'FINANCIAL_ADMIN', 'RESET_SIM', 'STOP_SIMULATION', 'APPROVE_PARAMETER_CHANGES'],
     status: 'APPROVED',
   },
+  {
+    id: 'admin-nilesh',
+    email: 'nilesh.banik@mech.iiests.ac.in',
+    name: 'Nilesh Banik',
+    badgeId: '2023MEB003',
+    role: 'SYSTEM_ADMIN',
+    roleTitle: 'System Administrator & Reliability Lead',
+    organisationId: 'iiests-mech',
+    organisation: 'Mechanical Engg. Dept., IIESTS',
+    department: 'Advanced Manufacturing Directorate',
+    permissions: ['ALL_PERMISSIONS', 'ADMIN_VERIFY', 'ERP_MRP_CONFIG', 'FINANCIAL_ADMIN', 'RESET_SIM', 'STOP_SIMULATION', 'APPROVE_PARAMETER_CHANGES'],
+    status: 'APPROVED',
+  },
+  {
+    id: 'admin-soumyajit',
+    email: 'soumyajit.chakraborty@mech.iiests.ac.in',
+    name: 'Soumyajit Chakraborty',
+    badgeId: '2023MEB015',
+    role: 'SYSTEM_ADMIN',
+    roleTitle: 'System Administrator & Operations Architect',
+    organisationId: 'iiests-mech',
+    organisation: 'Mechanical Engg. Dept., IIESTS',
+    department: 'Advanced Manufacturing Directorate',
+    permissions: ['ALL_PERMISSIONS', 'ADMIN_VERIFY', 'ERP_MRP_CONFIG', 'FINANCIAL_ADMIN', 'RESET_SIM', 'STOP_SIMULATION', 'APPROVE_PARAMETER_CHANGES'],
+    status: 'APPROVED',
+  },
+  {
+    id: 'admin-chitrayan',
+    email: 'chitrayan.biswas@mech.iiests.ac.in',
+    name: 'Chitrayan Biswas',
+    badgeId: '2023MEB019',
+    role: 'SYSTEM_ADMIN',
+    roleTitle: 'System Administrator & Quality Governor',
+    organisationId: 'iiests-mech',
+    organisation: 'Mechanical Engg. Dept., IIESTS',
+    department: 'Advanced Manufacturing Directorate',
+    permissions: ['ALL_PERMISSIONS', 'ADMIN_VERIFY', 'ERP_MRP_CONFIG', 'FINANCIAL_ADMIN', 'RESET_SIM', 'STOP_SIMULATION', 'APPROVE_PARAMETER_CHANGES'],
+    status: 'APPROVED',
+  },
+  // 2. Production Cell Operators & Engineers
   {
     id: 'op-101',
     email: 'operator@iiests.ac.in',

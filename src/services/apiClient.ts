@@ -89,12 +89,16 @@ export const apiClient = {
   },
 
   /**
-   * Admin: Retrieves pending user signups awaiting verification
+   * Admin: Retrieves pending user signups awaiting verification (Protected)
    */
-  async getPendingUsers(): Promise<UserAccount[]> {
+  async getPendingUsers(adminBadgeOrEmail?: string): Promise<UserAccount[]> {
     try {
-      const res = await fetch('/api/admin/pending-users');
-      if (!res.ok) throw new Error('Forbidden');
+      const headers: Record<string, string> = {};
+      if (adminBadgeOrEmail) {
+        headers['x-admin-auth'] = adminBadgeOrEmail;
+      }
+      const res = await fetch('/api/admin/pending-users', { headers });
+      if (!res.ok) return [];
       const data = await res.json();
       return data.pendingUsers || [];
     } catch {
@@ -105,22 +109,99 @@ export const apiClient = {
   /**
    * Admin: Verifies (approves/rejects) a user registration and their organization
    */
-  async verifyUser(userId: string, approved: boolean, rejectionReason?: string): Promise<{ success: boolean; message: string }> {
+  async verifyUser(
+    userId: string,
+    approved: boolean,
+    rejectionReason?: string,
+    adminEmail?: string,
+    adminBadge?: string,
+    adminPasscode?: string
+  ): Promise<{ success: boolean; message: string }> {
     try {
       const res = await fetch('/api/admin/verify-user', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-auth': adminBadge || adminEmail || ADMIN_EMAIL,
+        },
         body: JSON.stringify({
           userId,
           approved,
           rejectionReason,
-          adminEmail: ADMIN_EMAIL,
+          adminEmail: adminEmail || ADMIN_EMAIL,
+          adminBadge,
+          adminPasscode,
         }),
       });
       const data = await res.json();
       return data;
     } catch (e: any) {
       return { success: false, message: e.message || 'Verification update failed' };
+    }
+  },
+
+  /**
+   * Retrieves all parameter change proposals
+   */
+  async getChangeRequests(): Promise<any[]> {
+    try {
+      const res = await fetch('/api/change-requests');
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.changeRequests || [];
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Submits a parameter change proposal (non-admin employee)
+   */
+  async submitChangeRequest(payload: any): Promise<{ success: boolean; changeRequest?: any; error?: string }> {
+    try {
+      const res = await fetch('/api/change-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      return data;
+    } catch (e: any) {
+      return { success: false, error: e.message || 'Submission failed' };
+    }
+  },
+
+  /**
+   * Admin approves or rejects a parameter change proposal
+   */
+  async reviewChangeRequest(
+    requestId: string,
+    approved: boolean,
+    adminEmail?: string,
+    adminBadge?: string,
+    adminPasscode?: string,
+    rejectionNote?: string
+  ): Promise<{ success: boolean; request?: any; message: string }> {
+    try {
+      const res = await fetch('/api/admin/review-change-request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-auth': adminBadge || adminEmail || ADMIN_EMAIL,
+        },
+        body: JSON.stringify({
+          requestId,
+          approved,
+          adminEmail: adminEmail || ADMIN_EMAIL,
+          adminBadge,
+          adminPasscode,
+          rejectionNote,
+        }),
+      });
+      const data = await res.json();
+      return data;
+    } catch (e: any) {
+      return { success: false, message: e.message || 'Review failed' };
     }
   },
 

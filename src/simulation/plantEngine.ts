@@ -1680,6 +1680,20 @@ export function tickSimulation(
       const rawNum = readyRm1.id.replace('entity_', '').replace('ent_', '');
       const asyCode = `ASY-${String(rawNum).padStart(3, '0')}`;
 
+      const assembledFromData = {
+        rm1EntityId: readyRm1.id,
+        rm2EntityId: readyRm2.id,
+        rm3EntityId: readyRm3.id,
+        rm1Code: oldRm1Code,
+        rm2Code: readyRm2.code,
+        rm3Code: readyRm3.code,
+        rm1Material: readyRm1.materialName || 'Aerospace Grade 304 Stainless Bar',
+        rm2Material: readyRm2.materialName || 'A356-T6 Aluminum Structural Casting',
+        rm3Material: readyRm3.materialName || 'Ti-6Al-4V Titanium Mounting Plate',
+        assembledAtSimSeconds: config.simulatedSecondsOfDay,
+        assembledAtClock: clockInfo.timeStr,
+      };
+
       readyRm1.currentStationId = 'final_assembly';
       readyRm1.type = 'ASSEMBLED_UNIT';
       readyRm1.line = 'FINAL';
@@ -1688,6 +1702,7 @@ export function tickSimulation(
       readyRm1.materialName = 'Matched Aerospace Hydraulic Sub-Assembly (RM1+RM2+RM3)';
       readyRm1.lotBatchId = `LOT-${config.simulatedDate.replace(/-/g, '')}-FINAL`;
       readyRm1.isProcessing = true;
+      readyRm1.assembledFrom = assembledFromData;
       finalAssembly.currentProcessingEntityId = readyRm1.id;
       finalAssembly.processingTimeRemaining = finalAssembly.nominalProcessingTime;
 
@@ -1696,7 +1711,7 @@ export function tickSimulation(
         ledger,
         readyRm2.code,
         'COMPLETED',
-        `Integrated into Final Assembly ${asyCode}`,
+        `Integrated into Final Assembly ${asyCode} (with ${oldRm1Code} and ${readyRm3.code})`,
         config.simulatedSecondsOfDay,
         clockInfo.timeStr
       );
@@ -1704,7 +1719,7 @@ export function tickSimulation(
         ledger,
         readyRm3.code,
         'COMPLETED',
-        `Integrated into Final Assembly ${asyCode}`,
+        `Integrated into Final Assembly ${asyCode} (with ${oldRm1Code} and ${readyRm2.code})`,
         config.simulatedSecondsOfDay,
         clockInfo.timeStr
       );
@@ -1728,6 +1743,7 @@ export function tickSimulation(
         materialName: 'Matched Aerospace Hydraulic Sub-Assembly (RM1+RM2+RM3)',
         lotBatchId: `LOT-${config.simulatedDate.replace(/-/g, '')}-FINAL`,
         rmType: 'FINAL' as const,
+        assembledFrom: assembledFromData,
       } : r);
 
       // Consume RM2 and RM3 items into the merged assembly
@@ -2198,26 +2214,83 @@ export function tickSimulation(
       remainingUsefulLifeHours: monotonicRul,
     };
 
-    // Discrete Event Operational Dynamics (Utilisation, Arrival, Departure, Processing Speed)
-    const nominalSec = st.nominalProcessingTime > 0 ? st.nominalProcessingTime : 30;
-    const processingSpeed = Number((60 / nominalSec).toFixed(2)); // parts per minute capacity
-    const isStationActive = isWorking || st.currentlyProcessingCount > 0;
-    const arrivalRate = isStationActive ? Number((processingSpeed * (0.85 + Math.sin(newTime / 4) * 0.12)).toFixed(2)) : 0;
-    const departureRate = isStationActive ? Number((processingSpeed * (0.82 + Math.cos(newTime / 5) * 0.12)).toFixed(2)) : 0;
+  }
 
-    if (Math.floor(newTime * 2) > Math.floor(state.timeSeconds * 2)) {
+  // 7.4 Unified Real-Time Station Telemetry & Flow History Recorder across ALL stations
+  if (Math.floor(newTime * 2) > Math.floor(state.timeSeconds * 2)) {
+    for (const sId of Object.keys(stations)) {
+      const st = stations[sId];
+      if (!st.history) st.history = [];
+
+      let arrivalRate = 0;
+      let departureRate = 0;
+      let processingSpeed = 0;
+      let util = st.utilization ?? 0;
+
+      if (st.type === 'truck_source') {
+        const truckKey = sId === 'truck_rm1' ? 'rm1' : sId === 'truck_rm2' ? 'rm2' : 'rm3';
+        const truckData = config.trucks[truckKey];
+        const mode = truckData?.unloadingMode || config.unloadingMode || 'MANUAL_HUMAN';
+        const paceSec = mode === 'OVERHEAD_CRANE' ? 15 : mode === 'FORKLIFT' ? 25 : 45;
+        processingSpeed = Number((60 / paceSec).toFixed(2));
+        arrivalRate = truckData?.isUnloading ? Number((processingSpeed * (0.95 + Math.sin(newTime / 3) * 0.08)).toFixed(2)) : (truckData?.hasArrived ? 1.0 : 0);
+        departureRate = truckData?.isUnloading ? Number((processingSpeed * (0.92 + Math.cos(newTime / 4) * 0.08)).toFixed(2)) : 0;
+        util = truckData?.isUnloading ? 100 : (truckData?.hasArrived ? 50 : 0);
+      } else if (st.type === 'truck_unloading') {
+        const truckKey = sId === 'unloading_rm1' ? 'rm1' : sId === 'unloading_rm2' ? 'rm2' : 'rm3';
+        const truckData = config.trucks[truckKey];
+        const mode = truckData?.unloadingMode || config.unloadingMode || 'MANUAL_HUMAN';
+        const paceSec = mode === 'OVERHEAD_CRANE' ? 15 : mode === 'FORKLIFT' ? 25 : 45;
+        processingSpeed = Number((60 / paceSec).toFixed(2));
+        const isBusy = st.status === 'BUSY' || (truckData?.isUnloading ?? false);
+        arrivalRate = isBusy ? Number((processingSpeed * (0.94 + Math.sin(newTime / 4) * 0.06)).toFixed(2)) : 0;
+        departureRate = isBusy ? Number((processingSpeed * (0.91 + Math.cos(newTime / 4) * 0.06)).toFixed(2)) : 0;
+        util = isBusy ? 92 : 0;
+      } else if (st.type === 'inventory_fifo') {
+        const unloaderId = sId === 'inventory_rm1' ? 'unloading_rm1' : sId === 'inventory_rm2' ? 'unloading_rm2' : 'unloading_rm3';
+        const unloader = stations[unloaderId];
+        const isUnloaderBusy = unloader?.status === 'BUSY';
+        const transId = sId === 'inventory_rm1' ? 'transporter_rm1' : sId === 'inventory_rm2' ? 'transporter_rm2' : 'transporter_rm3';
+        const trans = stations[transId];
+        processingSpeed = 2.0; // 2 parts/min intake capacity
+        arrivalRate = isUnloaderBusy ? 1.85 : 0;
+        departureRate = (trans?.status === 'BUSY' || st.currentQueueCount > 0) ? 1.65 : 0;
+        util = Math.min(100, Math.round((st.currentQueueCount / (st.maxQueueCapacity || 120)) * 100));
+      } else if (st.type.includes('transporter')) {
+        const activeItems = entities.filter(e => e.currentStationId === sId);
+        const nominalSec = st.nominalProcessingTime > 0 ? st.nominalProcessingTime : 45;
+        processingSpeed = Number((60 / nominalSec).toFixed(2));
+        arrivalRate = activeItems.length > 0 ? Number((processingSpeed * 0.9).toFixed(2)) : 0;
+        departureRate = activeItems.length > 0 ? Number((processingSpeed * 0.88).toFixed(2)) : 0;
+        util = activeItems.length > 0 ? Math.min(100, activeItems.length * 50) : 0;
+      } else if (st.isQueue) {
+        util = Math.min(100, Math.round((st.currentQueueCount / (st.maxQueueCapacity || 20)) * 100));
+        arrivalRate = st.currentQueueCount > 0 ? 1.2 : 0;
+        departureRate = st.currentQueueCount > 0 ? 1.1 : 0;
+        processingSpeed = 2.0;
+      } else {
+        // Servers (CNC, QC, Assembly, Packaging)
+        const nominalSec = st.nominalProcessingTime > 0 ? st.nominalProcessingTime : 30;
+        processingSpeed = Number((60 / nominalSec).toFixed(2));
+        const isStationActive = st.status === 'BUSY' || st.currentlyProcessingCount > 0;
+        arrivalRate = isStationActive ? Number((processingSpeed * (0.85 + Math.sin(newTime / 4) * 0.12)).toFixed(2)) : 0;
+        departureRate = isStationActive ? Number((processingSpeed * (0.82 + Math.cos(newTime / 5) * 0.12)).toFixed(2)) : 0;
+        util = st.utilization;
+      }
+
       st.history.push({
         timestamp: Math.round(newTime * 10) / 10,
-        vibrationRms: Number(st.sensors.vibrationRms.toFixed(2)),
-        temperature: Number(st.sensors.temperature.toFixed(1)),
-        motorCurrent: Number(st.sensors.motorCurrent.toFixed(1)),
-        acousticEmission: Number(st.sensors.acousticEmission.toFixed(1)),
-        anomalyScore: st.mlResult.anomalyScore,
-        utilization: st.utilization,
+        vibrationRms: Number((st.sensors?.vibrationRms ?? 0.8).toFixed(2)),
+        temperature: Number((st.sensors?.temperature ?? 24).toFixed(1)),
+        motorCurrent: Number((st.sensors?.motorCurrent ?? 4).toFixed(1)),
+        acousticEmission: Number((st.sensors?.acousticEmission ?? 12).toFixed(1)),
+        anomalyScore: st.mlResult?.anomalyScore ?? 0.05,
+        utilization: util,
         arrivalRate,
         departureRate,
         processingSpeed,
       });
+
       if (st.history.length > 30) {
         st.history.shift();
       }

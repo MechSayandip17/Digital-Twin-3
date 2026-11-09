@@ -11,6 +11,9 @@ import {
   getTenantSimulationState,
   saveTenantSimulationState,
   resetTenantSimulationState,
+  getChangeRequests,
+  createChangeRequest,
+  reviewChangeRequest,
 } from './src/server/db.js';
 import { ADMIN_EMAIL } from './src/types/auth.js';
 
@@ -105,9 +108,41 @@ async function startServer() {
     }
   });
 
-  // 4. Admin: List Pending Registrations
+  // Helper to check if actor is one of the 4 designated admins or system admin
+  const isAuthorizedAdmin = (badgeOrEmail?: string, pass?: string) => {
+    if (!badgeOrEmail) return false;
+    const clean = badgeOrEmail.trim().toUpperCase();
+    const cleanEmail = badgeOrEmail.trim().toLowerCase();
+    const validBadges = ['CHIEF-ENG-01', '2023MEB003', '2023MEB015', '2023MEB019'];
+    const validEmails = [
+      'sayandipmallickclassf@gmail.com',
+      'rumapolosaha@gmail.com',
+      'nilesh.banik@mech.iiests.ac.in',
+      'soumyajit.chakraborty@mech.iiests.ac.in',
+      'chitrayan.biswas@mech.iiests.ac.in',
+    ];
+    const isBadgeMatch = validBadges.includes(clean);
+    const isEmailMatch = validEmails.includes(cleanEmail);
+    if (!isBadgeMatch && !isEmailMatch) return false;
+
+    // If passcode is provided, check validity
+    if (pass) {
+      const cleanPass = pass.trim();
+      if (clean === 'CHIEF-ENG-01' || cleanEmail === 'sayandipmallickclassf@gmail.com') {
+        return cleanPass === 'admin123' || cleanPass === 'CHIEF-ENG-01';
+      }
+      return cleanPass.toUpperCase() === clean || cleanPass === 'admin123';
+    }
+    return true;
+  };
+
+  // 4. Admin: List Pending Registrations (Protected)
   app.get('/api/admin/pending-users', async (req: Request, res: Response) => {
     try {
+      const adminAuth = (req.headers['x-admin-auth'] as string) || (req.query.adminId as string);
+      if (!isAuthorizedAdmin(adminAuth)) {
+        return res.status(403).json({ success: false, error: 'Access denied: Admin credentials required to view pending registrations.' });
+      }
       const pending = await getPendingUsers();
       res.json({ success: true, pendingUsers: pending });
     } catch (err: any) {
@@ -115,16 +150,102 @@ async function startServer() {
     }
   });
 
-  // 5. Admin: Verify / Approve / Reject User & Organization
+  // 5. Admin: Verify / Approve / Reject User & Organization (Protected)
   app.post('/api/admin/verify-user', async (req: Request, res: Response) => {
     try {
-      const { userId, approved, rejectionReason, adminEmail } = req.body;
+      const { userId, approved, rejectionReason, adminEmail, adminBadge, adminPasscode } = req.body;
+      const headerAuth = (req.headers['x-admin-auth'] as string);
+      const actor = adminBadge || adminEmail || headerAuth;
+
+      if (!isAuthorizedAdmin(actor, adminPasscode)) {
+        return res.status(403).json({
+          success: false,
+          error: 'SECURITY VIOLATION: Only the 4 Designated System Administrators can verify or reject accounts.',
+        });
+      }
+
       if (!userId || typeof approved !== 'boolean') {
         return res.status(400).json({ success: false, error: 'userId and approved boolean required.' });
       }
 
       const verifierEmail = adminEmail || ADMIN_EMAIL;
       const result = await verifyUserAction(userId, approved, verifierEmail, rejectionReason);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 5b. Parameter Change Requests: List all
+  app.get('/api/change-requests', async (_req: Request, res: Response) => {
+    try {
+      const requests = await getChangeRequests();
+      res.json({ success: true, changeRequests: requests });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 5c. Parameter Change Requests: Submit new proposal (by employee)
+  app.post('/api/change-requests', async (req: Request, res: Response) => {
+    try {
+      const {
+        requestedByUserId,
+        requestedByName,
+        requestedByRole,
+        requestedByBadge,
+        organisationId,
+        organisationName,
+        title,
+        category,
+        description,
+        proposedConfigChanges,
+        proposedStationChanges,
+      } = req.body;
+
+      if (!title || !description || !requestedByName) {
+        return res.status(400).json({ success: false, error: 'title, description, and requestedByName required.' });
+      }
+
+      const created = await createChangeRequest({
+        requestedByUserId: requestedByUserId || 'emp-unknown',
+        requestedByName,
+        requestedByRole: requestedByRole || 'PLANT_OPERATOR',
+        requestedByBadge: requestedByBadge || 'ME-OPR',
+        organisationId: organisationId || 'iiests-mech',
+        organisationName: organisationName || 'Mechanical Engg. Dept., IIESTS',
+        title,
+        category: category || 'SHIFT_LOGISTICS',
+        description,
+        proposedConfigChanges,
+        proposedStationChanges,
+      });
+
+      res.status(201).json({ success: true, changeRequest: created });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 5d. Parameter Change Requests: Admin Review & Approve/Reject (Protected)
+  app.post('/api/admin/review-change-request', async (req: Request, res: Response) => {
+    try {
+      const { requestId, approved, adminEmail, adminBadge, adminPasscode, rejectionNote } = req.body;
+      const headerAuth = (req.headers['x-admin-auth'] as string);
+      const actor = adminBadge || adminEmail || headerAuth;
+
+      if (!isAuthorizedAdmin(actor, adminPasscode)) {
+        return res.status(403).json({
+          success: false,
+          error: 'SECURITY VIOLATION: Only the 4 Designated System Administrators can approve or reject parameter proposals.',
+        });
+      }
+
+      if (!requestId || typeof approved !== 'boolean') {
+        return res.status(400).json({ success: false, error: 'requestId and approved boolean required.' });
+      }
+
+      const result = await reviewChangeRequest(requestId, approved, adminEmail || ADMIN_EMAIL, rejectionNote);
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });

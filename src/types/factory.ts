@@ -305,6 +305,25 @@ export type ItemType =
   | 'ASSEMBLED_UNIT'
   | 'PACKAGED_PRODUCT';
 
+export interface AssembledFromConstituents {
+  rm1EntityId: string;
+  rm2EntityId: string;
+  rm3EntityId: string;
+  rm1Code: string;
+  rm2Code: string;
+  rm3Code: string;
+  rm1Material?: string;
+  rm2Material?: string;
+  rm3Material?: string;
+  rm1Name?: string;
+  rm2Name?: string;
+  rm3Name?: string;
+  assembledAtStation?: string;
+  assembledAtSimSeconds: number;
+  assembledAtClock: string;
+  assemblyTimestamp?: string;
+}
+
 export interface ItemEntity {
   id: string;
   code: string;
@@ -320,6 +339,7 @@ export interface ItemEntity {
   qualityPassed: boolean;
   creationTime: number;
   totalCycleTime: number;
+  assembledFrom?: AssembledFromConstituents;
 }
 
 export interface ItemLifecycleStep {
@@ -350,6 +370,7 @@ export interface ItemLifecycleRecord {
   status: 'ACTIVE_WIP' | 'COMPLETED_DISPATCH' | 'SCRAPPED_QC';
   totalLeadTimeSeconds: number;
   steps: ItemLifecycleStep[];
+  assembledFrom?: AssembledFromConstituents;
 }
 
 export interface PlantOEE {

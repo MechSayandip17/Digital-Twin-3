@@ -10,12 +10,14 @@ import {
   DEFAULT_ORG_NAME,
   UserApprovalStatus,
   PRECONFIGURED_OPERATORS,
+  ParameterChangeRequest,
 } from '../types/auth';
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const ORGS_FILE = path.join(DATA_DIR, 'orgs.json');
 const TENANTS_DIR = path.join(DATA_DIR, 'tenants');
+const CHANGE_REQUESTS_FILE = path.join(DATA_DIR, 'change_requests.json');
 
 function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password.trim()).digest('hex');
@@ -257,8 +259,14 @@ export async function loginUser(
     };
   }
 
-  // Check password
-  if (user.password && user.password !== hashed && passcode !== '••••••••' && passcode !== 'admin123') {
+  // Check password - allow hashed password, generic dev token, admin123, or badge ID for admins
+  const isMatch = !user.password ||
+    user.password === hashed ||
+    passcode === '••••••••' ||
+    passcode === 'admin123' ||
+    passcode.toUpperCase() === user.badgeId.toUpperCase();
+
+  if (!isMatch) {
     return {
       success: false,
       error: 'Invalid passcode or security PIN.',
@@ -384,7 +392,8 @@ export async function getTenantSimulationState(orgId: string): Promise<any | nul
   const tenantFile = path.join(TENANTS_DIR, orgId, 'state.json');
   try {
     const raw = await fs.readFile(tenantFile, 'utf-8');
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    return parsed?.state || parsed;
   } catch {
     return null;
   }
@@ -417,3 +426,67 @@ export async function resetTenantSimulationState(orgId: string): Promise<boolean
     return true;
   }
 }
+
+/**
+ * Parameter Change Requests Store
+ * Allows non-admin employees to propose changes that require Admin approval
+ */
+export async function getChangeRequests(): Promise<ParameterChangeRequest[]> {
+  await initializeDatabase();
+  try {
+    const raw = await fs.readFile(CHANGE_REQUESTS_FILE, 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+export async function saveChangeRequests(reqs: ParameterChangeRequest[]): Promise<void> {
+  await initializeDatabase();
+  await fs.writeFile(CHANGE_REQUESTS_FILE, JSON.stringify(reqs, null, 2), 'utf-8');
+}
+
+export async function createChangeRequest(input: Omit<ParameterChangeRequest, 'id' | 'timestamp' | 'timestampStr' | 'status'>): Promise<ParameterChangeRequest> {
+  const all = await getChangeRequests();
+  const newReq: ParameterChangeRequest = {
+    ...input,
+    id: `pcr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    timestamp: Date.now(),
+    timestampStr: new Date().toLocaleTimeString(),
+    createdAt: new Date().toISOString(),
+    status: 'PENDING_ADMIN_APPROVAL',
+  };
+  all.unshift(newReq);
+  await saveChangeRequests(all);
+  return newReq;
+}
+
+export async function reviewChangeRequest(
+  requestId: string,
+  approved: boolean,
+  adminEmail: string,
+  rejectionNote?: string
+): Promise<{ success: boolean; request?: ParameterChangeRequest; message: string }> {
+  const all = await getChangeRequests();
+  const idx = all.findIndex((r) => r.id === requestId);
+  if (idx === -1) {
+    return { success: false, message: 'Parameter change request not found.' };
+  }
+  const req = all[idx];
+  req.status = approved ? 'APPROVED' : 'REJECTED';
+  req.reviewedByAdmin = adminEmail;
+  req.reviewedAt = new Date().toISOString();
+  if (!approved && rejectionNote) {
+    req.rejectionNote = rejectionNote;
+  }
+  all[idx] = req;
+  await saveChangeRequests(all);
+  return {
+    success: true,
+    request: req,
+    message: approved
+      ? `Change request "${req.title}" has been APPROVED by ${adminEmail}.`
+      : `Change request "${req.title}" was REJECTED.`,
+  };
+}
+
