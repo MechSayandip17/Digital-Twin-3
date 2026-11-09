@@ -1,0 +1,130 @@
+[
+  {
+    "id": "usr-admin-01",
+    "email": "sayandipmallickclassf@gmail.com",
+    "password": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+    "name": "Sayandip Mallick (Chief Engineer & Admin)",
+    "badgeId": "CHIEF-ENG-01",
+    "role": "SYSTEM_ADMIN",
+    "roleTitle": "Chief Engineer & System Administrator",
+    "organisationId": "iiests-mech",
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "department": "Advanced Manufacturing Directorate",
+    "status": "APPROVED",
+    "createdAt": "2026-11-01T08:00:00Z",
+    "approvedAt": "2026-11-01T08:00:00Z",
+    "approvedBy": "SYSTEM_GENESIS",
+    "permissions": [
+      "ALL_PERMISSIONS",
+      "ADMIN_VERIFY",
+      "ERP_MRP_CONFIG",
+      "FINANCIAL_ADMIN",
+      "RESET_SIM"
+    ]
+  },
+  {
+    "id": "usr-opr-101",
+    "email": "operator@iiests.ac.in",
+    "password": "ec6e1c25258002eb1c67d15c7f45da7945fa4c58778fd7d88faa5e53e3b4698d",
+    "name": "Rajesh Sharma",
+    "badgeId": "ME-OPR-4412",
+    "role": "PLANT_OPERATOR",
+    "roleTitle": "Lead Shift Operator",
+    "organisationId": "iiests-mech",
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "department": "Advanced Manufacturing & Robotics Lab",
+    "status": "APPROVED",
+    "createdAt": "2026-11-01T08:00:00Z",
+    "approvedAt": "2026-11-01T08:00:00Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "MANUAL_STOP",
+      "LOG_QC"
+    ]
+  },
+  {
+    "id": "usr-opr-pending",
+    "email": "vikram.verma@tata-defense.in",
+    "password": "7340807db0d4dd75661952f02544182a4999ef506899dd979ca86eb46fa85ffe",
+    "name": "Vikram Verma",
+    "badgeId": "TASL-OPR-881",
+    "role": "PLANT_OPERATOR",
+    "roleTitle": "Aerospace Machining Cell Operator",
+    "organisationId": "tasl-aero",
+    "organisationName": "Tata Advanced Systems Aerospace Unit",
+    "department": "Precision Components Division",
+    "status": "APPROVED",
+    "createdAt": "2026-11-09T06:42:10.596Z",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR"
+    ],
+    "approvedAt": "2026-11-09T06:44:32.651Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com"
+  },
+  {
+    "id": "usr-mw8w8rao",
+    "email": "test.1794206530605@aerospace-unit.in",
+    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "name": "Suresh Kumar",
+    "badgeId": "TEST-OPR-0605",
+    "role": "PLANT_OPERATOR",
+    "roleTitle": "Certified Plant Operator",
+    "organisationId": "hal-aerospace-actuator-division",
+    "organisationName": "HAL Aerospace Actuator Division",
+    "department": "Hydraulic Actuators Unit",
+    "status": "APPROVED",
+    "createdAt": "2026-11-09T06:42:10.608Z",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC"
+    ],
+    "approvedAt": "2026-11-09T06:42:10.612Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com"
+  },
+  {
+    "id": "usr-mw8w8vxv",
+    "email": "test.1794206536621@aerospace-unit.in",
+    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "name": "Suresh Kumar",
+    "badgeId": "TEST-OPR-6621",
+    "role": "PLANT_OPERATOR",
+    "roleTitle": "Certified Plant Operator",
+    "organisationId": "hal-aerospace-actuator-division",
+    "organisationName": "HAL Aerospace Actuator Division",
+    "department": "Hydraulic Actuators Unit",
+    "status": "APPROVED",
+    "createdAt": "2026-11-09T06:42:16.627Z",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC"
+    ],
+    "approvedAt": "2026-11-09T06:42:16.632Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com"
+  },
+  {
+    "id": "usr-mw8whdgh",
+    "email": "test.1794206932571@aerospace-unit.in",
+    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "name": "Suresh Kumar",
+    "badgeId": "TEST-OPR-2571",
+    "role": "PLANT_OPERATOR",
+    "roleTitle": "Certified Plant Operator",
+    "organisationId": "hal-aerospace-actuator-division",
+    "organisationName": "HAL Aerospace Actuator Division",
+    "department": "Hydraulic Actuators Unit",
+    "status": "APPROVED",
+    "createdAt": "2026-11-09T06:48:52.577Z",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC"
+    ],
+    "approvedAt": "2026-11-09T06:48:52.580Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com"
+  }
+]

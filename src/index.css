@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  color-scheme: dark;
+  background-color: #020617;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #020617;
+  color: #f8fafc;
+  color-scheme: dark;
+  overflow-x: hidden;
+}
+
+/* Global sleek dark scrollbars across entire application */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0b1120;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Firefox standard dark scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 #0b1120;
+}
+
+/* Custom scrollbar utility for modal bodies and drawers */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #0f172a;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #0284c7;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 #0f172a;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* Hide app navigation and controls when printing */
+  nav, header, aside, .no-print, button {
+    display: none !important;
+  }
+
+  /* Make report container full width without scrollbars */
+  #shift-summary-report-printable {
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  #shift-summary-report-printable * {
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+    background: transparent !important;
+  }
+}

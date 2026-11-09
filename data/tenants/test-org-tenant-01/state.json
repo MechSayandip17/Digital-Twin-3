@@ -1,0 +1,13 @@
+{
+  "orgId": "test-org-tenant-01",
+  "lastSavedTimestamp": 1794206932583,
+  "lastSavedClock": "2026-11-09T06:48:52.583Z",
+  "state": {
+    "timeSeconds": 4200,
+    "completedCount": 28,
+    "activeFaults": 0,
+    "oee": {
+      "overallOEE": 92.4
+    }
+  }
+}

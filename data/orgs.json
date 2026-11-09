@@ -1,0 +1,32 @@
+[
+  {
+    "id": "iiests-mech",
+    "name": "Mechanical Engg. Dept., IIESTS",
+    "code": "IIESTS-MECH",
+    "status": "VERIFIED",
+    "verifiedBy": "sayandipmallickclassf@gmail.com",
+    "verifiedAt": "2026-11-09T06:42:10.594Z",
+    "createdAt": "2026-11-01T08:00:00Z",
+    "adminEmail": "sayandipmallickclassf@gmail.com"
+  },
+  {
+    "id": "tasl-aero",
+    "name": "Tata Advanced Systems Aerospace Unit",
+    "code": "TASL-AERO-01",
+    "status": "VERIFIED",
+    "createdAt": "2026-11-09T06:42:10.594Z",
+    "adminEmail": "vikram.verma@tata-defense.in",
+    "verifiedBy": "sayandipmallickclassf@gmail.com",
+    "verifiedAt": "2026-11-09T06:44:32.651Z"
+  },
+  {
+    "id": "hal-aerospace-actuator-division",
+    "name": "HAL Aerospace Actuator Division",
+    "code": "HAL-AEROSP",
+    "status": "VERIFIED",
+    "createdAt": "2026-11-09T06:42:10.608Z",
+    "adminEmail": "test.1794206530605@aerospace-unit.in",
+    "verifiedBy": "sayandipmallickclassf@gmail.com",
+    "verifiedAt": "2026-11-09T06:48:52.580Z"
+  }
+]

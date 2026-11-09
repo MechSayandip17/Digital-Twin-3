@@ -1,0 +1,3013 @@
+{
+  "orgId": "iiests-mech",
+  "lastSavedTimestamp": 1794206838735,
+  "lastSavedClock": "2026-11-09T06:47:18.735Z",
+  "state": {
+    "timeSeconds": 0,
+    "isRunning": false,
+    "simulationSpeed": 1,
+    "stations": {
+      "truck_rm1": {
+        "id": "truck_rm1",
+        "name": "Truck Inflow RM1",
+        "simulinkTag": "TRUCK RM1",
+        "line": "RM1",
+        "type": "truck_source",
+        "x": 50,
+        "y": 100,
+        "width": 70,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 120,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 8,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.406442637568121,
+          "vibrationPeak": 0.4941749208554906,
+          "temperature": 36.943803699662205,
+          "motorCurrent": 8.168740658285522,
+          "acousticEmission": 16.039923979406954,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.406442637568121,
+            "temperature": 36.943803699662205,
+            "motorCurrent": 8.168740658285522,
+            "acousticEmission": 16.039923979406954,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 7.5
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.406442637568121,
+            "temperature": 36.943803699662205,
+            "motorCurrent": 8.168740658285522,
+            "acousticEmission": 16.039923979406954,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 7.5
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.406442637568121,
+            "temperature": 36.943803699662205,
+            "motorCurrent": 8.168740658285522,
+            "acousticEmission": 16.039923979406954,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 7.5
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.034,
+          "isAnomaly": false,
+          "isolationForestScore": 0.048,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 234,
+        "remainingUsefulLifeHours": 448.5,
+        "wearPercentage": 39,
+        "lastMaintenanceOperatingHour": 189
+      },
+      "unloading_rm1": {
+        "id": "unloading_rm1",
+        "name": "Truck Unloading RM1",
+        "simulinkTag": "TRUCK UNLOADING RM1",
+        "line": "RM1",
+        "type": "truck_unloading",
+        "x": 210,
+        "y": 100,
+        "width": 65,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 3.5,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.429224413306392,
+          "vibrationPeak": 0.5048903299047176,
+          "temperature": 36.822496931683794,
+          "motorCurrent": 8.156371736621827,
+          "acousticEmission": 15.737741863480675,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.429224413306392,
+            "temperature": 36.822496931683794,
+            "motorCurrent": 8.156371736621827,
+            "acousticEmission": 15.737741863480675,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 17.14
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.429224413306392,
+            "temperature": 36.822496931683794,
+            "motorCurrent": 8.156371736621827,
+            "acousticEmission": 15.737741863480675,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 17.14
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.429224413306392,
+            "temperature": 36.822496931683794,
+            "motorCurrent": 8.156371736621827,
+            "acousticEmission": 15.737741863480675,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 17.14
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.034,
+          "isAnomaly": false,
+          "isolationForestScore": 0.048,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 194,
+        "remainingUsefulLifeHours": 448.5,
+        "wearPercentage": 32,
+        "lastMaintenanceOperatingHour": 149
+      },
+      "inventory_rm1": {
+        "id": "inventory_rm1",
+        "name": "Inventory RM1 (FIFO)",
+        "simulinkTag": "INVENTORY RM1",
+        "line": "RM1",
+        "type": "inventory_fifo",
+        "x": 370,
+        "y": 100,
+        "width": 65,
+        "height": 48,
+        "isQueue": true,
+        "maxQueueCapacity": 120,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 0,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "IDLE",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.4102771940289334,
+          "vibrationPeak": 0.4966121922487195,
+          "temperature": 36.945637636134734,
+          "motorCurrent": 7.878292881582335,
+          "acousticEmission": 15.977250675047959,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.4102771940289334,
+            "temperature": 36.945637636134734,
+            "motorCurrent": 7.878292881582335,
+            "acousticEmission": 15.977250675047959,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.4102771940289334,
+            "temperature": 36.945637636134734,
+            "motorCurrent": 7.878292881582335,
+            "acousticEmission": 15.977250675047959,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.4102771940289334,
+            "temperature": 36.945637636134734,
+            "motorCurrent": 7.878292881582335,
+            "acousticEmission": 15.977250675047959,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.033,
+          "isAnomaly": false,
+          "isolationForestScore": 0.047,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 229,
+        "remainingUsefulLifeHours": 448.5,
+        "wearPercentage": 38,
+        "lastMaintenanceOperatingHour": 184
+      },
+      "transporter_rm1": {
+        "id": "transporter_rm1",
+        "name": "Transporter RM1 (Lathe - 360s)",
+        "simulinkTag": "TRANSPORTER RM1",
+        "line": "RM1",
+        "type": "transporter",
+        "x": 530,
+        "y": 100,
+        "width": 85,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 360,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.2035936674911665,
+          "vibrationPeak": 0.38860333902107363,
+          "temperature": 36.031868413792196,
+          "motorCurrent": 6.835040101820638,
+          "acousticEmission": 13.825029479205586,
+          "toolWearIndex": 0,
+          "conveyorTension": 454.4008395007091,
+          "speedRpm": 120
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.2035936674911665,
+            "temperature": 36.031868413792196,
+            "motorCurrent": 6.835040101820638,
+            "acousticEmission": 13.825029479205586,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.17
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.2035936674911665,
+            "temperature": 36.031868413792196,
+            "motorCurrent": 6.835040101820638,
+            "acousticEmission": 13.825029479205586,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.17
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.2035936674911665,
+            "temperature": 36.031868413792196,
+            "motorCurrent": 6.835040101820638,
+            "acousticEmission": 13.825029479205586,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.17
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.034,
+          "isAnomaly": false,
+          "isolationForestScore": 0.048,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 648.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 648.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 184,
+        "remainingUsefulLifeHours": 648.5,
+        "wearPercentage": 31,
+        "lastMaintenanceOperatingHour": 139
+      },
+      "cnc_lathe": {
+        "id": "cnc_lathe",
+        "name": "CNC Lathe Machine",
+        "simulinkTag": "CNC LATHE",
+        "line": "RM1",
+        "type": "cnc_lathe",
+        "x": 690,
+        "y": 100,
+        "width": 75,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 360,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.7859413077149893,
+          "vibrationPeak": 0.8825263984904094,
+          "temperature": 42.15180984136106,
+          "motorCurrent": 12.569042554221287,
+          "acousticEmission": 22.027414526618763,
+          "toolWearIndex": 0.04,
+          "speedRpm": 3200
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.7859413077149893,
+            "temperature": 42.15180984136106,
+            "motorCurrent": 12.569042554221287,
+            "acousticEmission": 22.027414526618763,
+            "anomalyScore": 0.041,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.17
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.7859413077149893,
+            "temperature": 42.15180984136106,
+            "motorCurrent": 12.569042554221287,
+            "acousticEmission": 22.027414526618763,
+            "anomalyScore": 0.041,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.17
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.7859413077149893,
+            "temperature": 42.15180984136106,
+            "motorCurrent": 12.569042554221287,
+            "acousticEmission": 22.027414526618763,
+            "anomalyScore": 0.041,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.17
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.041,
+          "isAnomaly": false,
+          "isolationForestScore": 0.059,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 429.3,
+          "modelConfidence": 97.6,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 429.3 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 234,
+        "remainingUsefulLifeHours": 429.3,
+        "wearPercentage": 39,
+        "lastMaintenanceOperatingHour": 189
+      },
+      "buffer_rm1": {
+        "id": "buffer_rm1",
+        "name": "Buffer RM1 (FIFO)",
+        "simulinkTag": "BUFFER RM1",
+        "line": "RM1",
+        "type": "buffer_fifo",
+        "x": 850,
+        "y": 100,
+        "width": 65,
+        "height": 48,
+        "isQueue": true,
+        "maxQueueCapacity": 60,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 0,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "IDLE",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.3506044863244222,
+          "vibrationPeak": 0.5154027236889985,
+          "temperature": 37.18222319614389,
+          "motorCurrent": 7.910291004751449,
+          "acousticEmission": 15.88699357328388,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.3506044863244222,
+            "temperature": 37.18222319614389,
+            "motorCurrent": 7.910291004751449,
+            "acousticEmission": 15.88699357328388,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.3506044863244222,
+            "temperature": 37.18222319614389,
+            "motorCurrent": 7.910291004751449,
+            "acousticEmission": 15.88699357328388,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.3506044863244222,
+            "temperature": 37.18222319614389,
+            "motorCurrent": 7.910291004751449,
+            "acousticEmission": 15.88699357328388,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.033,
+          "isAnomaly": false,
+          "isolationForestScore": 0.046,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 182,
+        "remainingUsefulLifeHours": 448.5,
+        "wearPercentage": 30,
+        "lastMaintenanceOperatingHour": 137
+      },
+      "qc_rm1": {
+        "id": "qc_rm1",
+        "name": "Quality Control RM1 (30s)",
+        "simulinkTag": "QUALITY CONTROL RM1",
+        "line": "RM1",
+        "type": "quality_control",
+        "x": 1010,
+        "y": 100,
+        "width": 70,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 30,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.3884450503979193,
+          "vibrationPeak": 0.4808777589339552,
+          "temperature": 36.74032687196774,
+          "motorCurrent": 7.948021612295032,
+          "acousticEmission": 16.020324203433915,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.3884450503979193,
+            "temperature": 36.74032687196774,
+            "motorCurrent": 7.948021612295032,
+            "acousticEmission": 16.020324203433915,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.3884450503979193,
+            "temperature": 36.74032687196774,
+            "motorCurrent": 7.948021612295032,
+            "acousticEmission": 16.020324203433915,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.3884450503979193,
+            "temperature": 36.74032687196774,
+            "motorCurrent": 7.948021612295032,
+            "acousticEmission": 16.020324203433915,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.032,
+          "isAnomaly": false,
+          "isolationForestScore": 0.045,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.6,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.6 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "qcSubsystem": {
+          "check1Inspected": 0,
+          "check1Passed": 0,
+          "check1Failed": 0,
+          "check2Scrapped": 0,
+          "check2SentToRework": 0,
+          "reworkProcessed": 0,
+          "check3Passed": 0,
+          "check3Scrapped": 0,
+          "firstPassYield": 100,
+          "rolledThroughputYield": 100,
+          "activeInReworkEntityId": null,
+          "reworkTimeRemaining": 0,
+          "defectAuditLog": []
+        },
+        "cumulativeRunHours": 247,
+        "remainingUsefulLifeHours": 448.6,
+        "wearPercentage": 41,
+        "lastMaintenanceOperatingHour": 202
+      },
+      "truck_rm2": {
+        "id": "truck_rm2",
+        "name": "Truck Inflow RM2",
+        "simulinkTag": "TRUCK RM2",
+        "line": "RM2",
+        "type": "truck_source",
+        "x": 50,
+        "y": 270,
+        "width": 70,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 120,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 8.5,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.3857051057906533,
+          "vibrationPeak": 0.48092119378156534,
+          "temperature": 37.0992749452185,
+          "motorCurrent": 7.815520923598369,
+          "acousticEmission": 15.798789987544199,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.3857051057906533,
+            "temperature": 37.0992749452185,
+            "motorCurrent": 7.815520923598369,
+            "acousticEmission": 15.798789987544199,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 7.06
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.3857051057906533,
+            "temperature": 37.0992749452185,
+            "motorCurrent": 7.815520923598369,
+            "acousticEmission": 15.798789987544199,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 7.06
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.3857051057906533,
+            "temperature": 37.0992749452185,
+            "motorCurrent": 7.815520923598369,
+            "acousticEmission": 15.798789987544199,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 7.06
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.034,
+          "isAnomaly": false,
+          "isolationForestScore": 0.048,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 219,
+        "remainingUsefulLifeHours": 448.5,
+        "wearPercentage": 37,
+        "lastMaintenanceOperatingHour": 174
+      },
+      "unloading_rm2": {
+        "id": "unloading_rm2",
+        "name": "Truck Unloading RM2",
+        "simulinkTag": "TRUCK UNLOADING RM2",
+        "line": "RM2",
+        "type": "truck_unloading",
+        "x": 210,
+        "y": 270,
+        "width": 65,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 3.5,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.3672880780851344,
+          "vibrationPeak": 0.502130003364465,
+          "temperature": 36.75946228969736,
+          "motorCurrent": 7.966062064244813,
+          "acousticEmission": 16.008797770606538,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.3672880780851344,
+            "temperature": 36.75946228969736,
+            "motorCurrent": 7.966062064244813,
+            "acousticEmission": 16.008797770606538,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 17.14
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.3672880780851344,
+            "temperature": 36.75946228969736,
+            "motorCurrent": 7.966062064244813,
+            "acousticEmission": 16.008797770606538,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 17.14
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.3672880780851344,
+            "temperature": 36.75946228969736,
+            "motorCurrent": 7.966062064244813,
+            "acousticEmission": 16.008797770606538,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 17.14
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.032,
+          "isAnomaly": false,
+          "isolationForestScore": 0.045,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.6,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.6 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 198,
+        "remainingUsefulLifeHours": 448.6,
+        "wearPercentage": 33,
+        "lastMaintenanceOperatingHour": 153
+      },
+      "inventory_rm2": {
+        "id": "inventory_rm2",
+        "name": "Inventory RM2 (FIFO)",
+        "simulinkTag": "INVENTORY RM2",
+        "line": "RM2",
+        "type": "inventory_fifo",
+        "x": 370,
+        "y": 270,
+        "width": 65,
+        "height": 48,
+        "isQueue": true,
+        "maxQueueCapacity": 120,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 0,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "IDLE",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.3960983059925367,
+          "vibrationPeak": 0.5248467825386984,
+          "temperature": 36.88322905253571,
+          "motorCurrent": 8.092186695992233,
+          "acousticEmission": 16.0039069146861,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.3960983059925367,
+            "temperature": 36.88322905253571,
+            "motorCurrent": 8.092186695992233,
+            "acousticEmission": 16.0039069146861,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.3960983059925367,
+            "temperature": 36.88322905253571,
+            "motorCurrent": 8.092186695992233,
+            "acousticEmission": 16.0039069146861,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.3960983059925367,
+            "temperature": 36.88322905253571,
+            "motorCurrent": 8.092186695992233,
+            "acousticEmission": 16.0039069146861,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.033,
+          "isAnomaly": false,
+          "isolationForestScore": 0.046,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 230,
+        "remainingUsefulLifeHours": 448.5,
+        "wearPercentage": 38,
+        "lastMaintenanceOperatingHour": 185
+      },
+      "transporter_rm2": {
+        "id": "transporter_rm2",
+        "name": "Transporter RM2 (Milling - 240s)",
+        "simulinkTag": "TRANSPORTER RM2",
+        "line": "RM2",
+        "type": "transporter",
+        "x": 530,
+        "y": 270,
+        "width": 85,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 240,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.1741424082658412,
+          "vibrationPeak": 0.4235704486995333,
+          "temperature": 36.18943434462424,
+          "motorCurrent": 6.844198540903485,
+          "acousticEmission": 14.272710908036537,
+          "toolWearIndex": 0,
+          "conveyorTension": 451.69758836546106,
+          "speedRpm": 120
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.1741424082658412,
+            "temperature": 36.18943434462424,
+            "motorCurrent": 6.844198540903485,
+            "acousticEmission": 14.272710908036537,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.25
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.1741424082658412,
+            "temperature": 36.18943434462424,
+            "motorCurrent": 6.844198540903485,
+            "acousticEmission": 14.272710908036537,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.25
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.1741424082658412,
+            "temperature": 36.18943434462424,
+            "motorCurrent": 6.844198540903485,
+            "acousticEmission": 14.272710908036537,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.25
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.033,
+          "isAnomaly": false,
+          "isolationForestScore": 0.046,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 648.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 648.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 204,
+        "remainingUsefulLifeHours": 648.5,
+        "wearPercentage": 34,
+        "lastMaintenanceOperatingHour": 159
+      },
+      "cnc_milling": {
+        "id": "cnc_milling",
+        "name": "CNC Milling Machine",
+        "simulinkTag": "CNC MILLING",
+        "line": "RM2",
+        "type": "cnc_milling",
+        "x": 690,
+        "y": 270,
+        "width": 75,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 240,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.7910341383805972,
+          "vibrationPeak": 0.8845584925188542,
+          "temperature": 42.23226142263016,
+          "motorCurrent": 12.513814007716125,
+          "acousticEmission": 21.773164146463944,
+          "toolWearIndex": 0.04,
+          "speedRpm": 3200
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.7910341383805972,
+            "temperature": 42.23226142263016,
+            "motorCurrent": 12.513814007716125,
+            "acousticEmission": 21.773164146463944,
+            "anomalyScore": 0.041,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.25
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.7910341383805972,
+            "temperature": 42.23226142263016,
+            "motorCurrent": 12.513814007716125,
+            "acousticEmission": 21.773164146463944,
+            "anomalyScore": 0.041,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.25
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.7910341383805972,
+            "temperature": 42.23226142263016,
+            "motorCurrent": 12.513814007716125,
+            "acousticEmission": 21.773164146463944,
+            "anomalyScore": 0.041,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.25
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.041,
+          "isAnomaly": false,
+          "isolationForestScore": 0.059,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 429.2,
+          "modelConfidence": 97.6,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 429.2 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 207,
+        "remainingUsefulLifeHours": 429.2,
+        "wearPercentage": 35,
+        "lastMaintenanceOperatingHour": 162
+      },
+      "buffer_rm2": {
+        "id": "buffer_rm2",
+        "name": "Buffer RM2 (FIFO)",
+        "simulinkTag": "BUFFER RM2",
+        "line": "RM2",
+        "type": "buffer_fifo",
+        "x": 850,
+        "y": 270,
+        "width": 65,
+        "height": 48,
+        "isQueue": true,
+        "maxQueueCapacity": 60,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 0,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "IDLE",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.3625515625146047,
+          "vibrationPeak": 0.4976260803052297,
+          "temperature": 37.160404871987254,
+          "motorCurrent": 8.039024899526945,
+          "acousticEmission": 16.234566338791648,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.3625515625146047,
+            "temperature": 37.160404871987254,
+            "motorCurrent": 8.039024899526945,
+            "acousticEmission": 16.234566338791648,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.3625515625146047,
+            "temperature": 37.160404871987254,
+            "motorCurrent": 8.039024899526945,
+            "acousticEmission": 16.234566338791648,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.3625515625146047,
+            "temperature": 37.160404871987254,
+            "motorCurrent": 8.039024899526945,
+            "acousticEmission": 16.234566338791648,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.032,
+          "isAnomaly": false,
+          "isolationForestScore": 0.045,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.6,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.6 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 259,
+        "remainingUsefulLifeHours": 448.6,
+        "wearPercentage": 43,
+        "lastMaintenanceOperatingHour": 214
+      },
+      "qc_rm2": {
+        "id": "qc_rm2",
+        "name": "Quality Control RM2 (30s)",
+        "simulinkTag": "QUALITY CONTROL RM2",
+        "line": "RM2",
+        "type": "quality_control",
+        "x": 1010,
+        "y": 270,
+        "width": 70,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 30,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.445826437707511,
+          "vibrationPeak": 0.5061017445764453,
+          "temperature": 37.356739444629675,
+          "motorCurrent": 7.9890555274515425,
+          "acousticEmission": 15.835756751681968,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.445826437707511,
+            "temperature": 37.356739444629675,
+            "motorCurrent": 7.9890555274515425,
+            "acousticEmission": 15.835756751681968,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.445826437707511,
+            "temperature": 37.356739444629675,
+            "motorCurrent": 7.9890555274515425,
+            "acousticEmission": 15.835756751681968,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.445826437707511,
+            "temperature": 37.356739444629675,
+            "motorCurrent": 7.9890555274515425,
+            "acousticEmission": 15.835756751681968,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.034,
+          "isAnomaly": false,
+          "isolationForestScore": 0.048,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "qcSubsystem": {
+          "check1Inspected": 0,
+          "check1Passed": 0,
+          "check1Failed": 0,
+          "check2Scrapped": 0,
+          "check2SentToRework": 0,
+          "reworkProcessed": 0,
+          "check3Passed": 0,
+          "check3Scrapped": 0,
+          "firstPassYield": 100,
+          "rolledThroughputYield": 100,
+          "activeInReworkEntityId": null,
+          "reworkTimeRemaining": 0,
+          "defectAuditLog": []
+        },
+        "cumulativeRunHours": 225,
+        "remainingUsefulLifeHours": 448.5,
+        "wearPercentage": 38,
+        "lastMaintenanceOperatingHour": 180
+      },
+      "truck_rm3": {
+        "id": "truck_rm3",
+        "name": "Truck Inflow RM3",
+        "simulinkTag": "TRUCK RM3",
+        "line": "RM3",
+        "type": "truck_source",
+        "x": 50,
+        "y": 440,
+        "width": 70,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 120,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 9,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.3903909918598518,
+          "vibrationPeak": 0.4804871286616641,
+          "temperature": 37.20971316510049,
+          "motorCurrent": 8.082041131956634,
+          "acousticEmission": 16.076016820266204,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.3903909918598518,
+            "temperature": 37.20971316510049,
+            "motorCurrent": 8.082041131956634,
+            "acousticEmission": 16.076016820266204,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 6.67
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.3903909918598518,
+            "temperature": 37.20971316510049,
+            "motorCurrent": 8.082041131956634,
+            "acousticEmission": 16.076016820266204,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 6.67
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.3903909918598518,
+            "temperature": 37.20971316510049,
+            "motorCurrent": 8.082041131956634,
+            "acousticEmission": 16.076016820266204,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 6.67
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.033,
+          "isAnomaly": false,
+          "isolationForestScore": 0.046,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 195,
+        "remainingUsefulLifeHours": 448.5,
+        "wearPercentage": 33,
+        "lastMaintenanceOperatingHour": 150
+      },
+      "unloading_rm3": {
+        "id": "unloading_rm3",
+        "name": "Truck Unloading RM3",
+        "simulinkTag": "TRUCK UNLOADING RM3",
+        "line": "RM3",
+        "type": "truck_unloading",
+        "x": 210,
+        "y": 440,
+        "width": 65,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 3.5,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.4255832828648125,
+          "vibrationPeak": 0.49683303542513274,
+          "temperature": 36.99394511968906,
+          "motorCurrent": 8.024287737401087,
+          "acousticEmission": 16.281034347722418,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.4255832828648125,
+            "temperature": 36.99394511968906,
+            "motorCurrent": 8.024287737401087,
+            "acousticEmission": 16.281034347722418,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 17.14
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.4255832828648125,
+            "temperature": 36.99394511968906,
+            "motorCurrent": 8.024287737401087,
+            "acousticEmission": 16.281034347722418,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 17.14
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.4255832828648125,
+            "temperature": 36.99394511968906,
+            "motorCurrent": 8.024287737401087,
+            "acousticEmission": 16.281034347722418,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 17.14
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.033,
+          "isAnomaly": false,
+          "isolationForestScore": 0.046,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 236,
+        "remainingUsefulLifeHours": 448.5,
+        "wearPercentage": 39,
+        "lastMaintenanceOperatingHour": 191
+      },
+      "inventory_rm3": {
+        "id": "inventory_rm3",
+        "name": "Inventory RM3 (FIFO)",
+        "simulinkTag": "INVENTORY RM3",
+        "line": "RM3",
+        "type": "inventory_fifo",
+        "x": 370,
+        "y": 440,
+        "width": 65,
+        "height": 48,
+        "isQueue": true,
+        "maxQueueCapacity": 120,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 0,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "IDLE",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.3884485142416783,
+          "vibrationPeak": 0.4785368087975281,
+          "temperature": 36.94815742956702,
+          "motorCurrent": 8.017936115938879,
+          "acousticEmission": 16.216590304680206,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.3884485142416783,
+            "temperature": 36.94815742956702,
+            "motorCurrent": 8.017936115938879,
+            "acousticEmission": 16.216590304680206,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.3884485142416783,
+            "temperature": 36.94815742956702,
+            "motorCurrent": 8.017936115938879,
+            "acousticEmission": 16.216590304680206,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.3884485142416783,
+            "temperature": 36.94815742956702,
+            "motorCurrent": 8.017936115938879,
+            "acousticEmission": 16.216590304680206,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.032,
+          "isAnomaly": false,
+          "isolationForestScore": 0.045,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.6,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.6 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 257,
+        "remainingUsefulLifeHours": 448.6,
+        "wearPercentage": 43,
+        "lastMaintenanceOperatingHour": 212
+      },
+      "transporter_rm3": {
+        "id": "transporter_rm3",
+        "name": "Transporter RM3 (Shaping - 210s)",
+        "simulinkTag": "TRANSPORTER RM3",
+        "line": "RM3",
+        "type": "transporter",
+        "x": 530,
+        "y": 440,
+        "width": 85,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 210,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.1658028704325512,
+          "vibrationPeak": 0.41282825527206846,
+          "temperature": 36.21178072634696,
+          "motorCurrent": 6.7655485245616696,
+          "acousticEmission": 14.008589280607165,
+          "toolWearIndex": 0,
+          "conveyorTension": 445.3546982254253,
+          "speedRpm": 120
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.1658028704325512,
+            "temperature": 36.21178072634696,
+            "motorCurrent": 6.7655485245616696,
+            "acousticEmission": 14.008589280607165,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.29
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.1658028704325512,
+            "temperature": 36.21178072634696,
+            "motorCurrent": 6.7655485245616696,
+            "acousticEmission": 14.008589280607165,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.29
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.1658028704325512,
+            "temperature": 36.21178072634696,
+            "motorCurrent": 6.7655485245616696,
+            "acousticEmission": 14.008589280607165,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.29
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.034,
+          "isAnomaly": false,
+          "isolationForestScore": 0.048,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 648.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 648.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 244,
+        "remainingUsefulLifeHours": 648.5,
+        "wearPercentage": 41,
+        "lastMaintenanceOperatingHour": 199
+      },
+      "cnc_shaping": {
+        "id": "cnc_shaping",
+        "name": "CNC Shaping Machine",
+        "simulinkTag": "CNC SHAPING",
+        "line": "RM3",
+        "type": "cnc_shaping",
+        "x": 690,
+        "y": 440,
+        "width": 75,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 210,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.8452964578284157,
+          "vibrationPeak": 0.888656817729265,
+          "temperature": 42.0280494685235,
+          "motorCurrent": 12.540356784232294,
+          "acousticEmission": 21.75293296032035,
+          "toolWearIndex": 0.04,
+          "speedRpm": 3200
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.8452964578284157,
+            "temperature": 42.0280494685235,
+            "motorCurrent": 12.540356784232294,
+            "acousticEmission": 21.75293296032035,
+            "anomalyScore": 0.041,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.29
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.8452964578284157,
+            "temperature": 42.0280494685235,
+            "motorCurrent": 12.540356784232294,
+            "acousticEmission": 21.75293296032035,
+            "anomalyScore": 0.041,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.29
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.8452964578284157,
+            "temperature": 42.0280494685235,
+            "motorCurrent": 12.540356784232294,
+            "acousticEmission": 21.75293296032035,
+            "anomalyScore": 0.041,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.29
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.041,
+          "isAnomaly": false,
+          "isolationForestScore": 0.059,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 428,
+          "modelConfidence": 97.6,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 428 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 208,
+        "remainingUsefulLifeHours": 428,
+        "wearPercentage": 35,
+        "lastMaintenanceOperatingHour": 163
+      },
+      "buffer_rm3": {
+        "id": "buffer_rm3",
+        "name": "Buffer RM3 (FIFO)",
+        "simulinkTag": "BUFFER RM3",
+        "line": "RM3",
+        "type": "buffer_fifo",
+        "x": 850,
+        "y": 440,
+        "width": 65,
+        "height": 48,
+        "isQueue": true,
+        "maxQueueCapacity": 60,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 0,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "IDLE",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.4457645562167454,
+          "vibrationPeak": 0.5146628138430174,
+          "temperature": 36.73926139346805,
+          "motorCurrent": 7.983219335345104,
+          "acousticEmission": 15.909864757968291,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.4457645562167454,
+            "temperature": 36.73926139346805,
+            "motorCurrent": 7.983219335345104,
+            "acousticEmission": 15.909864757968291,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.4457645562167454,
+            "temperature": 36.73926139346805,
+            "motorCurrent": 7.983219335345104,
+            "acousticEmission": 15.909864757968291,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.4457645562167454,
+            "temperature": 36.73926139346805,
+            "motorCurrent": 7.983219335345104,
+            "acousticEmission": 15.909864757968291,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.033,
+          "isAnomaly": false,
+          "isolationForestScore": 0.047,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 259,
+        "remainingUsefulLifeHours": 448.5,
+        "wearPercentage": 43,
+        "lastMaintenanceOperatingHour": 214
+      },
+      "qc_rm3": {
+        "id": "qc_rm3",
+        "name": "Quality Control RM3 (30s)",
+        "simulinkTag": "QUALITY CONTROL RM3",
+        "line": "RM3",
+        "type": "quality_control",
+        "x": 1010,
+        "y": 440,
+        "width": 70,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 30,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.4184437741455767,
+          "vibrationPeak": 0.4781896967889347,
+          "temperature": 37.07424366589755,
+          "motorCurrent": 7.933668478716045,
+          "acousticEmission": 16.2851290116476,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.4184437741455767,
+            "temperature": 37.07424366589755,
+            "motorCurrent": 7.933668478716045,
+            "acousticEmission": 16.2851290116476,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.4184437741455767,
+            "temperature": 37.07424366589755,
+            "motorCurrent": 7.933668478716045,
+            "acousticEmission": 16.2851290116476,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.4184437741455767,
+            "temperature": 37.07424366589755,
+            "motorCurrent": 7.933668478716045,
+            "acousticEmission": 16.2851290116476,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.033,
+          "isAnomaly": false,
+          "isolationForestScore": 0.046,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "qcSubsystem": {
+          "check1Inspected": 0,
+          "check1Passed": 0,
+          "check1Failed": 0,
+          "check2Scrapped": 0,
+          "check2SentToRework": 0,
+          "reworkProcessed": 0,
+          "check3Passed": 0,
+          "check3Scrapped": 0,
+          "firstPassYield": 100,
+          "rolledThroughputYield": 100,
+          "activeInReworkEntityId": null,
+          "reworkTimeRemaining": 0,
+          "defectAuditLog": []
+        },
+        "cumulativeRunHours": 216,
+        "remainingUsefulLifeHours": 448.5,
+        "wearPercentage": 36,
+        "lastMaintenanceOperatingHour": 171
+      },
+      "converge_join": {
+        "id": "converge_join",
+        "name": "Converge / Joiner",
+        "simulinkTag": "CONVERGE JOIN",
+        "line": "MERGE",
+        "type": "converge_join",
+        "x": 1180,
+        "y": 100,
+        "width": 44,
+        "height": 388,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 1,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.4485511509506737,
+          "vibrationPeak": 0.5131033496885059,
+          "temperature": 37.01046242590006,
+          "motorCurrent": 8.012542213711697,
+          "acousticEmission": 16.056485058669935,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.4485511509506737,
+            "temperature": 37.01046242590006,
+            "motorCurrent": 8.012542213711697,
+            "acousticEmission": 16.056485058669935,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 60
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.4485511509506737,
+            "temperature": 37.01046242590006,
+            "motorCurrent": 8.012542213711697,
+            "acousticEmission": 16.056485058669935,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 60
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.4485511509506737,
+            "temperature": 37.01046242590006,
+            "motorCurrent": 8.012542213711697,
+            "acousticEmission": 16.056485058669935,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 60
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.033,
+          "isAnomaly": false,
+          "isolationForestScore": 0.047,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 247,
+        "remainingUsefulLifeHours": 448.5,
+        "wearPercentage": 41,
+        "lastMaintenanceOperatingHour": 202
+      },
+      "final_assembly": {
+        "id": "final_assembly",
+        "name": "Final Assembly Cell",
+        "simulinkTag": "FINAL ASSEMBLY",
+        "line": "FINAL",
+        "type": "final_assembly",
+        "x": 1290,
+        "y": 270,
+        "width": 80,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 240,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.5083351756816974,
+          "vibrationPeak": 0.619148329736645,
+          "temperature": 38.60546740234968,
+          "motorCurrent": 9.15670998892513,
+          "acousticEmission": 18.066555352250965,
+          "toolWearIndex": 0,
+          "speedRpm": 1800
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.5083351756816974,
+            "temperature": 38.60546740234968,
+            "motorCurrent": 9.15670998892513,
+            "acousticEmission": 18.066555352250965,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.25
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.5083351756816974,
+            "temperature": 38.60546740234968,
+            "motorCurrent": 9.15670998892513,
+            "acousticEmission": 18.066555352250965,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.25
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.5083351756816974,
+            "temperature": 38.60546740234968,
+            "motorCurrent": 9.15670998892513,
+            "acousticEmission": 18.066555352250965,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.25
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.032,
+          "isAnomaly": false,
+          "isolationForestScore": 0.045,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.4,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.4 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 224,
+        "remainingUsefulLifeHours": 448.4,
+        "wearPercentage": 37,
+        "lastMaintenanceOperatingHour": 179
+      },
+      "entity_queue": {
+        "id": "entity_queue",
+        "name": "Entity Queue (FIFO)",
+        "simulinkTag": "Entity Queue",
+        "line": "FINAL",
+        "type": "entity_queue",
+        "x": 1450,
+        "y": 270,
+        "width": 65,
+        "height": 48,
+        "isQueue": true,
+        "maxQueueCapacity": 50,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 0,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "IDLE",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.4180651081795663,
+          "vibrationPeak": 0.47604827636845193,
+          "temperature": 36.78511405675438,
+          "motorCurrent": 8.012763546876483,
+          "acousticEmission": 16.211615868048494,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.4180651081795663,
+            "temperature": 36.78511405675438,
+            "motorCurrent": 8.012763546876483,
+            "acousticEmission": 16.211615868048494,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.4180651081795663,
+            "temperature": 36.78511405675438,
+            "motorCurrent": 8.012763546876483,
+            "acousticEmission": 16.211615868048494,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.4180651081795663,
+            "temperature": 36.78511405675438,
+            "motorCurrent": 8.012763546876483,
+            "acousticEmission": 16.211615868048494,
+            "anomalyScore": 0.032,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.032,
+          "isAnomaly": false,
+          "isolationForestScore": 0.045,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.6,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.6 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 189,
+        "remainingUsefulLifeHours": 448.6,
+        "wearPercentage": 32,
+        "lastMaintenanceOperatingHour": 144
+      },
+      "packaging": {
+        "id": "packaging",
+        "name": "Packaging Station",
+        "simulinkTag": "PACKAGING",
+        "line": "FINAL",
+        "type": "packaging",
+        "x": 1610,
+        "y": 270,
+        "width": 75,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 240,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.4953952411270677,
+          "vibrationPeak": 0.5975007079274341,
+          "temperature": 38.158312195812115,
+          "motorCurrent": 9.390399248592898,
+          "acousticEmission": 17.82880560492516,
+          "toolWearIndex": 0,
+          "speedRpm": 1800
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.4953952411270677,
+            "temperature": 38.158312195812115,
+            "motorCurrent": 9.390399248592898,
+            "acousticEmission": 17.82880560492516,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.25
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.4953952411270677,
+            "temperature": 38.158312195812115,
+            "motorCurrent": 9.390399248592898,
+            "acousticEmission": 17.82880560492516,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.25
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.4953952411270677,
+            "temperature": 38.158312195812115,
+            "motorCurrent": 9.390399248592898,
+            "acousticEmission": 17.82880560492516,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 0.25
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.034,
+          "isAnomaly": false,
+          "isolationForestScore": 0.048,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 231,
+        "remainingUsefulLifeHours": 448.5,
+        "wearPercentage": 39,
+        "lastMaintenanceOperatingHour": 186
+      },
+      "transporter_out": {
+        "id": "transporter_out",
+        "name": "Transporter Out (45s)",
+        "simulinkTag": "TRANSPORTER OUT",
+        "line": "FINAL",
+        "type": "transporter_out",
+        "x": 1770,
+        "y": 270,
+        "width": 85,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 45,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.1800799203996226,
+          "vibrationPeak": 0.4111705773753161,
+          "temperature": 36.25070837571921,
+          "motorCurrent": 6.778058776402582,
+          "acousticEmission": 14.089812652547408,
+          "toolWearIndex": 0,
+          "conveyorTension": 448.8710647510781,
+          "speedRpm": 120
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.1800799203996226,
+            "temperature": 36.25070837571921,
+            "motorCurrent": 6.778058776402582,
+            "acousticEmission": 14.089812652547408,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 1.33
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.1800799203996226,
+            "temperature": 36.25070837571921,
+            "motorCurrent": 6.778058776402582,
+            "acousticEmission": 14.089812652547408,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 1.33
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.1800799203996226,
+            "temperature": 36.25070837571921,
+            "motorCurrent": 6.778058776402582,
+            "acousticEmission": 14.089812652547408,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 1.33
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.033,
+          "isAnomaly": false,
+          "isolationForestScore": 0.046,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 648.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 648.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 230,
+        "remainingUsefulLifeHours": 648.5,
+        "wearPercentage": 38,
+        "lastMaintenanceOperatingHour": 185
+      },
+      "entity_queue_out": {
+        "id": "entity_queue_out",
+        "name": "Entity Queue 1 (FIFO)",
+        "simulinkTag": "Entity Queue1",
+        "line": "FINAL",
+        "type": "entity_queue_out",
+        "x": 1930,
+        "y": 270,
+        "width": 65,
+        "height": 48,
+        "isQueue": true,
+        "maxQueueCapacity": 120,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 0,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "IDLE",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.4212972363959635,
+          "vibrationPeak": 0.5021243935904489,
+          "temperature": 37.391493604097164,
+          "motorCurrent": 7.94428871359774,
+          "acousticEmission": 15.940111961250553,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.4212972363959635,
+            "temperature": 37.391493604097164,
+            "motorCurrent": 7.94428871359774,
+            "acousticEmission": 15.940111961250553,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.4212972363959635,
+            "temperature": 37.391493604097164,
+            "motorCurrent": 7.94428871359774,
+            "acousticEmission": 15.940111961250553,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.4212972363959635,
+            "temperature": 37.391493604097164,
+            "motorCurrent": 7.94428871359774,
+            "acousticEmission": 15.940111961250553,
+            "anomalyScore": 0.033,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.033,
+          "isAnomaly": false,
+          "isolationForestScore": 0.047,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 234,
+        "remainingUsefulLifeHours": 448.5,
+        "wearPercentage": 39,
+        "lastMaintenanceOperatingHour": 189
+      },
+      "sink_dispatch": {
+        "id": "sink_dispatch",
+        "name": "Sink / Dispatch Out",
+        "simulinkTag": "SINK DISPATCH",
+        "line": "FINAL",
+        "type": "sink_dispatch",
+        "x": 2080,
+        "y": 270,
+        "width": 65,
+        "height": 48,
+        "isQueue": false,
+        "currentlyProcessingCount": 0,
+        "currentQueueCount": 0,
+        "processedToday": 0,
+        "processedCumulative": 0,
+        "currentProcessingEntityId": null,
+        "processingTimeRemaining": 0,
+        "nominalProcessingTime": 0,
+        "utilization": 0,
+        "busyTimeAccumulated": 0,
+        "totalTimeAccumulated": 0.1,
+        "itemsProcessed": 0,
+        "itemsRejected": 0,
+        "status": "STARVED",
+        "activeFault": "NONE",
+        "sensors": {
+          "vibrationRms": 1.4249622901748535,
+          "vibrationPeak": 0.49210531150075687,
+          "temperature": 36.788593136390276,
+          "motorCurrent": 8.130733529909897,
+          "acousticEmission": 16.283679588639576,
+          "toolWearIndex": 0
+        },
+        "history": [
+          {
+            "timestamp": -2,
+            "vibrationRms": 1.4249622901748535,
+            "temperature": 36.788593136390276,
+            "motorCurrent": 8.130733529909897,
+            "acousticEmission": 16.283679588639576,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": -1,
+            "vibrationRms": 1.4249622901748535,
+            "temperature": 36.788593136390276,
+            "motorCurrent": 8.130733529909897,
+            "acousticEmission": 16.283679588639576,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          },
+          {
+            "timestamp": 0,
+            "vibrationRms": 1.4249622901748535,
+            "temperature": 36.788593136390276,
+            "motorCurrent": 8.130733529909897,
+            "acousticEmission": 16.283679588639576,
+            "anomalyScore": 0.034,
+            "utilization": 0,
+            "arrivalRate": 0,
+            "departureRate": 0,
+            "processingSpeed": 2
+          }
+        ],
+        "mlResult": {
+          "anomalyScore": 0.034,
+          "isAnomaly": false,
+          "isolationForestScore": 0.048,
+          "autoencoderReconstructionError": 0.01,
+          "predictedFailureClass": "Nominal Operating Condition",
+          "predictedFailureProb": 97,
+          "remainingUsefulLifeHours": 448.5,
+          "modelConfidence": 97.7,
+          "prescriptiveAction": "Station operating normally. Continue scheduled predictive monitoring. Next routine inspection in 448.5 hrs.",
+          "contributingFeatures": [
+            {
+              "name": "Vibration RMS within ISO 10816-3 Zone A",
+              "impact": 0.35
+            },
+            {
+              "name": "Operating Temperature Stable",
+              "impact": 0.35
+            },
+            {
+              "name": "Nominal Current Draw",
+              "impact": 0.3
+            }
+          ]
+        },
+        "cumulativeRunHours": 200,
+        "remainingUsefulLifeHours": 448.5,
+        "wearPercentage": 33,
+        "lastMaintenanceOperatingHour": 155
+      }
+    },
+    "entities": [],
+    "completedCount": 0,
+    "rejectedCount": 0,
+    "wipCount": 0,
+    "oee": {
+      "availability": 0,
+      "performance": 0,
+      "quality": 0,
+      "overallOEE": 0
+    },
+    "bottleneckStationId": null,
+    "lineBalanceScore": 100,
+    "totalDowntimeSeconds": 0,
+    "config": {
+      "shiftDurationHours": 8,
+      "shiftStartHour": 8,
+      "simulatedSecondsOfDay": 28800,
+      "simulatedDate": "2026-11-09",
+      "simulatedDayCount": 1,
+      "timeScale": 1,
+      "isShiftOpen": true,
+      "dailyTargetUnits": 120,
+      "dailyRmPerTruck": 120,
+      "arrearsUnits": 0,
+      "completedToday": 0,
+      "completedCumulative": 0,
+      "energyConsumedTodayKwh": 0,
+      "trucks": {
+        "rm1": {
+          "arrivalTimeStr": "08:00 AM",
+          "arrivalHour": 8,
+          "unitsDelivered": 120,
+          "hasArrived": false,
+          "isUnloading": false,
+          "unitsLeftToUnload": 120,
+          "enabled": true,
+          "unloadingMode": "MANUAL_HUMAN"
+        },
+        "rm2": {
+          "arrivalTimeStr": "08:15 AM",
+          "arrivalHour": 8.25,
+          "unitsDelivered": 120,
+          "hasArrived": false,
+          "isUnloading": false,
+          "unitsLeftToUnload": 120,
+          "enabled": true,
+          "unloadingMode": "FORKLIFT"
+        },
+        "rm3": {
+          "arrivalTimeStr": "08:30 AM",
+          "arrivalHour": 8.5,
+          "unitsDelivered": 120,
+          "hasArrived": false,
+          "isUnloading": false,
+          "unitsLeftToUnload": 120,
+          "enabled": true,
+          "unloadingMode": "OVERHEAD_CRANE"
+        }
+      },
+      "unloadingMode": "MANUAL_HUMAN",
+      "humanCrewSize": 3,
+      "workerFatiguePercentage": 5,
+      "conveyorTransportTimeSeconds": 45,
+      "conveyorLatheTimeSeconds": 360,
+      "conveyorMillingTimeSeconds": 240,
+      "conveyorShapingTimeSeconds": 210,
+      "conveyorDispatchMode": "STEADY_CONTINUOUS_FLOW",
+      "latheCycleTimeMinutes": 6,
+      "millingCycleTimeMinutes": 4,
+      "shapingCycleTimeMinutes": 3.5,
+      "qualityParameters": {
+        "inspectionDurationSeconds": 30,
+        "reworkDurationSeconds": 180,
+        "dimensionalToleranceMm": 0.02,
+        "surfaceRoughnessRa": 0.8,
+        "hardnessHrcMin": 45,
+        "hardnessHrcMax": 50
+      },
+      "assemblyMode": "SEMI_AUTOMATED",
+      "assemblyCycleTimeMinutes": 4,
+      "packagingCycleTimeMinutes": 4,
+      "bypassSubassemblyDirectToQC": true,
+      "lunchBreakEnabled": true,
+      "lunchBreakStartHour": 13,
+      "lunchBreakDurationMinutes": 60,
+      "randomFailuresEnabled": true,
+      "failureFrequency": "MEDIUM",
+      "mtbfHours": 16,
+      "toolWearRateMultiplier": 1
+    },
+    "performanceHistory": [
+      {
+        "day": 1,
+        "dateStr": "2026-11-09",
+        "dayLabel": "Day 1 (Today)",
+        "finishedGoods": 0,
+        "targetUnits": 120,
+        "arrearsBacklog": 0,
+        "cumulativeBacklog": 0,
+        "scrapCount": 0,
+        "fpy": 100,
+        "oee": 0,
+        "isCurrentDay": true
+      }
+    ],
+    "itemLifecycleLedger": [],
+    "faultIncidentHistory": []
+  }
+}
