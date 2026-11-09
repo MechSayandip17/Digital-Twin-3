@@ -82,7 +82,7 @@ export const DESIGNATED_ADMINS: AdminRecord[] = [
   {
     id: 'admin-me',
     name: 'Sayandip Mallick (Chief Admin)',
-    rollNumber: 'CHIEF-ENG',
+    rollNumber: '2023MEB017',
     badgeId: 'CHIEF-ENG-01',
     email: 'sayandipmallickclassf@gmail.com',
     roleTitle: 'Chief Engineer & Lead System Administrator',

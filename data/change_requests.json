@@ -1,0 +1,27 @@
+[
+  {
+    "requestedByUserId": "emp-operator",
+    "requestedByName": "Rajesh Sharma",
+    "requestedByRole": "PLANT_OPERATOR",
+    "requestedByBadge": "ME-OPR-4412",
+    "requesterName": "Rajesh Sharma",
+    "requesterBadge": "ME-OPR-4412",
+    "organisationId": "iiests-mech",
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "title": "Adjustment: latheCycleTimeMinutes",
+    "category": "SHIFT_LOGISTICS",
+    "description": "Proposed update: {\"latheCycleTimeMinutes\":5.5}",
+    "reason": "Proposed update: {\"latheCycleTimeMinutes\":5.5}",
+    "proposedChanges": {
+      "latheCycleTimeMinutes": 5.5
+    },
+    "proposedConfigChanges": {
+      "latheCycleTimeMinutes": 5.5
+    },
+    "id": "pcr-mw91vxim-6did",
+    "timestamp": 1794216009838,
+    "timestampStr": "9:20:09 AM",
+    "createdAt": "2026-11-09T09:20:09.858Z",
+    "status": "PENDING_ADMIN_APPROVAL"
+  }
+]

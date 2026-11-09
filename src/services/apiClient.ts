@@ -89,6 +89,22 @@ export const apiClient = {
   },
 
   /**
+   * Resets operator password (Forgot Password workflow)
+   */
+  async resetPassword(identifier: string, newPassword: string): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, newPassword }),
+      });
+      const data = await res.json();
+      return data;
+    } catch (e: any) {
+      return { success: false, error: e.message || 'Password reset request failed' };
+    }
+  },
+  /**
    * Admin: Retrieves pending user signups awaiting verification (Protected)
    */
   async getPendingUsers(adminBadgeOrEmail?: string): Promise<UserAccount[]> {

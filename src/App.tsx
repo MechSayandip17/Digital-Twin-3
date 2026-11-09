@@ -109,7 +109,21 @@ export default function App() {
         const parsed = JSON.parse(savedFull);
         if (parsed && parsed.stations && parsed.config) {
           // Progress must NOT disappear on page reload: retain exact state, day count, completed items, arrears, and stations
-          return parsed;
+          let restored = parsed;
+          const lastSaved = parsed._savedWallTime || localStorage.getItem('aerotwin_last_saved_wall_time');
+          if (parsed.isRunning && lastSaved) {
+            const elapsed = Math.max(0, (Date.now() - Number(lastSaved)) / 1000);
+            if (elapsed > 1 && elapsed < 86400 * 7) {
+              const speed = parsed.simulationSpeed || 1;
+              const simSecs = elapsed * speed;
+              const steps = 30;
+              const dt = simSecs / steps;
+              for (let i = 0; i < steps; i++) {
+                restored = tickSimulation(restored, dt);
+              }
+            }
+          }
+          return restored;
         }
       }
       const saved = localStorage.getItem('aerotwin_plant_config');
@@ -219,7 +233,22 @@ export default function App() {
       const remote = await apiClient.loadTenantState(orgId);
       const stateToLoad = (remote && remote.stations && remote.config) ? remote : (remote?.state?.stations ? remote.state : null);
       if (stateToLoad) {
-        setSimulationState(stateToLoad);
+        // If simulation was running, catch up with real uninterrupted elapsed wall-clock time
+        let updatedState = stateToLoad;
+        if (stateToLoad.isRunning && stateToLoad._serverSavedTimestamp) {
+          const elapsedRealSeconds = Math.max(0, (Date.now() - stateToLoad._serverSavedTimestamp) / 1000);
+          if (elapsedRealSeconds > 1 && elapsedRealSeconds < 86400 * 7) {
+            // Apply uninterrupted simulation progression (bounded chunks to ensure fidelity)
+            const speed = stateToLoad.simulationSpeed || 1;
+            const simSecondsToAdvance = elapsedRealSeconds * speed;
+            const maxChunks = 40;
+            const chunkDt = simSecondsToAdvance / maxChunks;
+            for (let i = 0; i < maxChunks; i++) {
+              updatedState = tickSimulation(updatedState, chunkDt);
+            }
+          }
+        }
+        setSimulationState(updatedState);
       }
     } catch {
       // ignore
@@ -262,6 +291,16 @@ export default function App() {
   }, [simulationState, authSession]);
 
   const handleSignOut = () => {
+    // Immediately persist current simulation state so other employees resuming later will find the exact clock & progress
+    const activeOrg = authSession.operator?.organisationId || 'iiests-mech';
+    try {
+      localStorage.setItem('aerotwin_saved_simulation_full', JSON.stringify(simulationState));
+      localStorage.setItem(`aerotwin_tenant_state_${activeOrg}`, JSON.stringify(simulationState));
+      apiClient.saveTenantState(activeOrg, simulationState);
+    } catch {
+      // ignore
+    }
+
     const unauth: AuthSession = {
       isAuthenticated: false,
       operator: authSession.operator,
@@ -278,14 +317,26 @@ export default function App() {
   };
 
   // Handle parameter proposals from non-admin operators
-  const handleParameterApprovalRequest = async (changes: Partial<any>, reason: string) => {
+  const handleParameterApprovalRequest = async (changes: Partial<any>, titleOrReason?: string, descriptionText?: string) => {
+    const authorName = authSession.operator?.name || 'Plant Operator';
+    const authorBadge = authSession.operator?.badgeId || 'ME-OPR';
+    const propTitle = titleOrReason || (changes ? `Parameter Adjustment: ${Object.keys(changes).join(', ')}` : 'Shift & Operational Adjustment');
+    const propDesc = descriptionText || titleOrReason || 'Proposed parameter updates submitted for administrator review and approval.';
+
     const res = await apiClient.submitChangeRequest({
-      requesterName: authSession.operator.name,
-      requesterBadge: authSession.operator.badgeId,
-      requesterEmail: authSession.operator.email,
-      organisationId: authSession.operator.organisationId,
+      requestedByName: authorName,
+      requesterName: authorName,
+      requestedByBadge: authorBadge,
+      requesterBadge: authorBadge,
+      requestedByRole: authSession.operator?.role || 'PLANT_OPERATOR',
+      requesterEmail: authSession.operator?.email || '',
+      organisationId: authSession.operator?.organisationId || 'iiests-mech',
+      organisationName: authSession.operator?.organisation || 'Mechanical Engg. Dept., IIESTS',
+      title: propTitle,
+      description: propDesc,
+      reason: propDesc,
       proposedChanges: changes,
-      reason: reason || 'Operational parameter adjustment proposal',
+      proposedConfigChanges: changes,
     });
     if (res.success) {
       setSweepToast('Proposal Submitted: Changes sent for System Administrator approval.');
@@ -357,10 +408,15 @@ export default function App() {
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
-        localStorage.setItem('aerotwin_saved_simulation_full', JSON.stringify(simulationState));
+        const stateWithWallTime = {
+          ...simulationState,
+          _savedWallTime: Date.now(),
+        };
+        localStorage.setItem('aerotwin_saved_simulation_full', JSON.stringify(stateWithWallTime));
+        localStorage.setItem('aerotwin_last_saved_wall_time', String(Date.now()));
         localStorage.setItem('aerotwin_plant_config', JSON.stringify(simulationState.config));
         if (authSession.operator?.organisationId) {
-          localStorage.setItem(`aerotwin_tenant_state_${authSession.operator.organisationId}`, JSON.stringify(simulationState));
+          localStorage.setItem(`aerotwin_tenant_state_${authSession.operator.organisationId}`, JSON.stringify(stateWithWallTime));
         }
       } catch {
         // ignore storage/quota errors

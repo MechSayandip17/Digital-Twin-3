@@ -76,6 +76,17 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
   const [signupErrorMsg, setSignupErrorMsg] = useState<string | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
 
+  // Forgot Password state
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [forgotInput, setForgotInput] = useState({
+    identifier: '',
+    newPassword: '',
+    confirmNewPassword: '',
+  });
+  const [forgotMsg, setForgotMsg] = useState<string | null>(null);
+  const [forgotError, setForgotError] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
+
   // Authenticated Admin Governance Session State
   // FATAL ERROR FIX: Public visitors cannot view or approve/reject pending registrations without verified admin login
   const [adminAuthInput, setAdminAuthInput] = useState({
@@ -208,6 +219,49 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
     }, 2500);
     return () => clearInterval(timer);
   }, []);
+
+  // Handle Forgot Password submission
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError(null);
+    setForgotMsg(null);
+
+    if (!forgotInput.identifier.trim()) {
+      setForgotError('Please enter your Operator Badge ID or corporate Email.');
+      return;
+    }
+
+    if (forgotInput.newPassword.length < 6) {
+      setForgotError('New password must be at least 6 characters.');
+      return;
+    }
+
+    if (forgotInput.newPassword !== forgotInput.confirmNewPassword) {
+      setForgotError('New passwords do not match.');
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      const res = await apiClient.resetPassword(forgotInput.identifier.trim(), forgotInput.newPassword);
+      setIsResetting(false);
+      if (res.success) {
+        setForgotMsg(res.message || 'Password updated successfully! You can now sign in.');
+        setOperatorId(forgotInput.identifier.trim());
+        setPassword('');
+        setTimeout(() => {
+          setIsForgotModalOpen(false);
+          setForgotMsg(null);
+          setForgotInput({ identifier: '', newPassword: '', confirmNewPassword: '' });
+        }, 2200);
+      } else {
+        setForgotError(res.error || res.message || 'Password reset request failed.');
+      }
+    } catch (err: any) {
+      setIsResetting(false);
+      setForgotError(err.message || 'Network error updating password.');
+    }
+  };
 
   // Handle Login Submission
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -604,10 +658,28 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                    <Lock className="w-3.5 h-3.5 text-slate-400" />
-                    Security Passcode / Terminal PIN
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-slate-400" />
+                      Security Passcode / Terminal PIN
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsForgotModalOpen(true);
+                        setForgotError(null);
+                        setForgotMsg(null);
+                        setForgotInput({
+                          identifier: operatorId.trim(),
+                          newPassword: '',
+                          confirmNewPassword: '',
+                        });
+                      }}
+                      className="text-[11px] text-cyan-400 hover:text-cyan-300 hover:underline font-medium transition"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
@@ -644,7 +716,22 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
 
               <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500 font-mono">
                 <span>Enterprise Node: IIEST Shibpur</span>
-                <span>Security: SHA-256 Gated</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsForgotModalOpen(true);
+                    setForgotError(null);
+                    setForgotMsg(null);
+                    setForgotInput({
+                      identifier: operatorId.trim(),
+                      newPassword: '',
+                      confirmNewPassword: '',
+                    });
+                  }}
+                  className="text-cyan-400/80 hover:text-cyan-300 hover:underline"
+                >
+                  Reset / Forgot PIN
+                </button>
               </div>
             </div>
           )}
@@ -1114,6 +1201,102 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
           )}
         </div>
       </main>
+
+      {/* Forgot Password / PIN Reset Modal */}
+      {isForgotModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4 text-left">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-cyan-950 border border-cyan-800 text-cyan-400">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Reset Operator Password</h3>
+                  <p className="text-[10px] text-slate-400">Update passcode for your Badge ID or Email</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsForgotModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {forgotMsg && (
+              <div className="p-3 rounded-xl bg-emerald-950/70 border border-emerald-600/70 text-emerald-200 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span>{forgotMsg}</span>
+              </div>
+            )}
+
+            {forgotError && (
+              <div className="p-3 rounded-xl bg-rose-950/70 border border-rose-600/70 text-rose-200 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{forgotError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleForgotPasswordSubmit} className="space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-300">Operator Badge ID or Email *</label>
+                <input
+                  type="text"
+                  value={forgotInput.identifier}
+                  onChange={(e) => setForgotInput({ ...forgotInput, identifier: e.target.value })}
+                  placeholder="e.g. ME-OPR-4412 or operator@iiests.ac.in"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-300">New Password (min 6 characters) *</label>
+                <input
+                  type="password"
+                  value={forgotInput.newPassword}
+                  onChange={(e) => setForgotInput({ ...forgotInput, newPassword: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-300">Confirm New Password *</label>
+                <input
+                  type="password"
+                  value={forgotInput.confirmNewPassword}
+                  onChange={(e) => setForgotInput({ ...forgotInput, confirmNewPassword: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  required
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsForgotModalOpen(false)}
+                  className="px-3 py-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isResetting}
+                  className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>{isResetting ? 'Updating...' : 'Set New Password'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* 3. Footer Legal & Standard Disclaimer */}
       <footer className="relative z-10 w-full border-t border-slate-800/80 px-4 py-3 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between max-w-7xl mx-auto gap-2">

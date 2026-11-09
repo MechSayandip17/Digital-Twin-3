@@ -176,6 +176,28 @@ async function startServer() {
     }
   });
 
+  // 3b. User Password Reset (Forgot Password Workflow)
+  app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
+    try {
+      const { identifier, newPassword } = req.body;
+      if (!identifier || !newPassword) {
+        return res.status(400).json({
+          success: false,
+          error: 'Please provide your badge ID or email, and your new password.',
+        });
+      }
+
+      const { resetUserPassword } = await import('./src/server/db.js');
+      const result = await resetUserPassword(identifier, newPassword);
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // 5b. Parameter Change Requests: List all
   app.get('/api/change-requests', async (_req: Request, res: Response) => {
     try {
@@ -192,32 +214,44 @@ async function startServer() {
       const {
         requestedByUserId,
         requestedByName,
+        requesterName,
         requestedByRole,
         requestedByBadge,
+        requesterBadge,
+        requesterEmail,
         organisationId,
         organisationName,
         title,
         category,
         description,
+        reason,
+        proposedChanges,
         proposedConfigChanges,
         proposedStationChanges,
       } = req.body;
 
-      if (!title || !description || !requestedByName) {
-        return res.status(400).json({ success: false, error: 'title, description, and requestedByName required.' });
-      }
+      // Handle all field aliases seamlessly so no submission ever fails
+      const authorName = requestedByName || requesterName || 'Plant Operator';
+      const authorBadge = requestedByBadge || requesterBadge || 'ME-OPR';
+      const changeTitle = title || (proposedChanges ? `Adjustment: ${Object.keys(proposedChanges).join(', ')}` : 'Operational Parameter Proposal');
+      const changeDesc = description || reason || (proposedChanges ? `Proposed update: ${JSON.stringify(proposedChanges)}` : 'Parameter adjustments submitted for admin review');
 
       const created = await createChangeRequest({
-        requestedByUserId: requestedByUserId || 'emp-unknown',
-        requestedByName,
+        requestedByUserId: requestedByUserId || 'emp-operator',
+        requestedByName: authorName,
         requestedByRole: requestedByRole || 'PLANT_OPERATOR',
-        requestedByBadge: requestedByBadge || 'ME-OPR',
+        requestedByBadge: authorBadge,
+        requesterName: authorName,
+        requesterBadge: authorBadge,
+        requesterEmail,
         organisationId: organisationId || 'iiests-mech',
         organisationName: organisationName || 'Mechanical Engg. Dept., IIESTS',
-        title,
+        title: changeTitle,
         category: category || 'SHIFT_LOGISTICS',
-        description,
-        proposedConfigChanges,
+        description: changeDesc,
+        reason: reason || changeDesc,
+        proposedChanges: proposedChanges || proposedConfigChanges || {},
+        proposedConfigChanges: proposedConfigChanges || proposedChanges || {},
         proposedStationChanges,
       });
 

@@ -314,13 +314,50 @@ export async function loginUser(
     status: user.status,
     lastLoginTime: new Date().toISOString(),
   };
-
   return {
     success: true,
     message: 'Authenticated successfully',
     sessionToken,
     operator,
     organisation: org,
+  };
+}
+
+export async function resetUserPassword(
+  identifier: string,
+  newPassword: string
+): Promise<{ success: boolean; message: string }> {
+  await initializeDatabase();
+  const users = await getUsers();
+  const cleanId = identifier.trim().toLowerCase();
+
+  const userIdx = users.findIndex(
+    (u) =>
+      u.email.toLowerCase() === cleanId ||
+      u.badgeId.toLowerCase() === cleanId ||
+      u.id.toLowerCase() === cleanId
+  );
+
+  if (userIdx === -1) {
+    return {
+      success: false,
+      message: 'No user account registered with this badge ID or email.',
+    };
+  }
+
+  if (newPassword.length < 6) {
+    return {
+      success: false,
+      message: 'New password must be at least 6 characters.',
+    };
+  }
+
+  users[userIdx].password = hashPassword(newPassword);
+  await saveUsers(users);
+
+  return {
+    success: true,
+    message: `Password updated successfully for ${users[userIdx].name} (${users[userIdx].badgeId}). You can now log in with your new passcode.`,
   };
 }
 
@@ -393,7 +430,15 @@ export async function getTenantSimulationState(orgId: string): Promise<any | nul
   try {
     const raw = await fs.readFile(tenantFile, 'utf-8');
     const parsed = JSON.parse(raw);
-    return parsed?.state || parsed;
+    if (parsed && parsed.state) {
+      // Attach server timestamp meta onto state so client can catch up time elapsed while user was logged out
+      return {
+        ...parsed.state,
+        _serverSavedTimestamp: parsed.lastSavedTimestamp || Date.now(),
+        _serverSavedClock: parsed.lastSavedClock,
+      };
+    }
+    return parsed;
   } catch {
     return null;
   }
