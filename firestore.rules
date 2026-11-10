@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 64 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // 1. Multi-tenant Organisation registry
+    match /organisations/{orgId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // 2. User accounts and profiles
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isSignedIn();
+    }
+
+    // 3. Tenant simulation state
+    match /tenants/{orgId}/simulation_state/{stateId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // 4. Parameter change requests
+    match /parameter_change_requests/{requestId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isSignedIn();
+    }
+
+    // 5. Password reset applications
+    match /password_resets/{resetId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isSignedIn();
+    }
+
+    // 6. Admin audit logs
+    match /audit_logs/{logId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}

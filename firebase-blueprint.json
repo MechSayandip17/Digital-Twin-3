@@ -1,0 +1,128 @@
+{
+  "entities": {
+    "Organisation": {
+      "title": "Organisation",
+      "description": "Multi-tenant organisation registered on the SCADA twin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "status": { "type": "string", "enum": ["VERIFIED", "PENDING"] },
+        "createdAt": { "type": "string" },
+        "verifiedBy": { "type": "string" }
+      },
+      "required": ["id", "name", "code", "status", "createdAt"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Plant operator or system administrator profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "badgeId": { "type": "string" },
+        "role": { "type": "string" },
+        "roleTitle": { "type": "string" },
+        "organisationId": { "type": "string" },
+        "organisationName": { "type": "string" },
+        "department": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING_APPROVAL", "APPROVED", "REJECTED"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "email", "name", "badgeId", "role", "organisationId", "status", "createdAt"]
+    },
+    "TenantSimulationState": {
+      "title": "TenantSimulationState",
+      "description": "Real-time production discrete-event digital twin state for an organisation",
+      "type": "object",
+      "properties": {
+        "timeSeconds": { "type": "number" },
+        "isRunning": { "type": "boolean" },
+        "completedCount": { "type": "number" },
+        "rejectedCount": { "type": "number" },
+        "wipCount": { "type": "number" },
+        "targetEnvironment": { "type": "string" },
+        "activeOperatorName": { "type": "string" },
+        "_serverSavedTimestamp": { "type": "number" }
+      },
+      "required": ["timeSeconds", "isRunning"]
+    },
+    "ParameterChangeRequest": {
+      "title": "ParameterChangeRequest",
+      "description": "Proposed operational parameter changes requiring administrator approval",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "requestedByName": { "type": "string" },
+        "requestedByBadge": { "type": "string" },
+        "organisationId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING_ADMIN_APPROVAL", "APPROVED", "REJECTED"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "requestedByName", "organisationId", "status", "createdAt"]
+    },
+    "PasswordResetApplication": {
+      "title": "PasswordResetApplication",
+      "description": "Operator password reset application requiring admin verification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userBadgeId": { "type": "string" },
+        "userEmail": { "type": "string", "format": "email" },
+        "organisationId": { "type": "string" },
+        "organisationName": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "requestedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "userEmail", "status", "requestedAt"]
+    },
+    "AdminAuditLog": {
+      "title": "AdminAuditLog",
+      "description": "Cryptographically logged admin governance action record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "adminEmail": { "type": "string" },
+        "adminBadge": { "type": "string" },
+        "action": { "type": "string" },
+        "targetId": { "type": "string" },
+        "targetName": { "type": "string" },
+        "details": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "adminEmail", "action", "details"]
+    }
+  },
+  "firestore": {
+    "/organisations/{orgId}": {
+      "schema": { "$ref": "#/entities/Organisation" },
+      "description": "Multi-tenant organisations directory"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles and credentials"
+    },
+    "/tenants/{orgId}/simulation_state/{stateId}": {
+      "schema": { "$ref": "#/entities/TenantSimulationState" },
+      "description": "Production digital twin simulation state for each tenant"
+    },
+    "/parameter_change_requests/{requestId}": {
+      "schema": { "$ref": "#/entities/ParameterChangeRequest" },
+      "description": "Operator parameter change proposals"
+    },
+    "/password_resets/{resetId}": {
+      "schema": { "$ref": "#/entities/PasswordResetApplication" },
+      "description": "Operator password reset applications"
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AdminAuditLog" },
+      "description": "Admin governance activity history"
+    }
+  }
+}

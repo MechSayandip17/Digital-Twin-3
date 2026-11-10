@@ -14,6 +14,7 @@ import {
   AdminAuditLog,
   PasswordResetApplication,
 } from '../types/auth';
+import { firestoreDb } from './firebaseAdmin.ts';
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
@@ -900,6 +901,33 @@ export async function saveTenantSimulationState(orgId: string, state: any): Prom
     await fs.appendFile(csvFile, csvRow, 'utf-8');
   } catch {
     // non-fatal CSV log failure
+  }
+
+  // Asynchronously synchronize with Firestore Cloud Database
+  if (firestoreDb) {
+    firestoreDb
+      .collection('tenants')
+      .doc(orgId)
+      .collection('simulation_state')
+      .doc('current')
+      .set(
+        {
+          orgId,
+          targetEnvironment: targetEnv,
+          isRunning: Boolean(state.isRunning),
+          simulatedSeconds: simSeconds,
+          activeOperatorName: operatorName,
+          lastSavedTimestamp: now,
+          lastSavedClock: nowIso,
+          completedCount: state.completedCount || state.finishedGoods || 0,
+          rejectedCount: state.rejectedCount || state.scrapCountToday || 0,
+          wipCount: state.wipCount || 0,
+        },
+        { merge: true }
+      )
+      .catch(() => {
+        // Non-blocking background sync
+      });
   }
 
   return true;
