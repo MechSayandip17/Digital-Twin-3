@@ -98,3 +98,65 @@ test('Multi-tenant simulation state persists isolated progress per organisation'
   assert.equal(loaded.state.completedCount, 28);
   assert.equal(loaded.state.oee.overallOEE, 92.4);
 });
+
+test('Plant supervisor registration grants ERP_MRP_CONFIG permissions and approval auto-creates employee', async () => {
+  const badge = `SUP-${Date.now().toString().slice(-4)}`;
+  const email = `sup.${Date.now()}@plant.in`;
+
+  // 1. Register as Plant Supervisor
+  const reg = await registerUser({
+    name: 'Debashis Roy',
+    email,
+    password: 'password123',
+    badgeId: badge,
+    department: 'Operations & ERP Scheduling',
+    requestedOrganisation: 'Mechanical Engg. Dept., IIESTS',
+    role: 'PLANT_SUPERVISOR',
+  });
+
+  assert.ok(reg.success);
+  assert.equal(reg.user?.role, 'PLANT_SUPERVISOR');
+  assert.ok(reg.user?.permissions.includes('ERP_MRP_CONFIG'), 'Supervisor must have ERP_MRP_CONFIG');
+
+  // 2. Admin edits applicant details before approval
+  const { updateApplicant, updateEmployee, getEmployees } = await import('./db.js');
+  const editResult = await updateApplicant(
+    reg.user!.id,
+    { department: 'Advanced Production & ERP Command' },
+    ADMIN_EMAIL
+  );
+  assert.ok(editResult.success);
+  assert.equal(editResult.user?.department, 'Advanced Production & ERP Command');
+
+  // 3. Admin approves -> auto-creates employee record
+  const verifyRes = await verifyUserAction(reg.user!.id, true, ADMIN_EMAIL);
+  assert.ok(verifyRes.success);
+  assert.ok(verifyRes.newEmployee, 'Approval must create new employee record');
+  assert.equal(verifyRes.newEmployee?.employeeId, badge);
+  assert.equal(verifyRes.newEmployee?.name, 'Debashis Roy');
+
+  // 4. Verify employee exists in roster and admin can update details
+  const employees = await getEmployees();
+  const matchedEmp = employees.find(e => e.employeeId === badge);
+  assert.ok(matchedEmp, 'Employee must be present in employees roster');
+
+  const updateEmpRes = await updateEmployee(
+    matchedEmp!.id,
+    { hourlyWage: 520.0, shift: 'SHIFT_1_DAY' },
+    ADMIN_EMAIL
+  );
+  assert.ok(updateEmpRes.success);
+  assert.equal(updateEmpRes.employee?.hourlyWage, 520.0);
+});
+
+test.after(async () => {
+  const { getUsers, saveUsers, getEmployees, saveEmployees } = await import('./db.js');
+  const allUsers = await getUsers();
+  const cleanedUsers = allUsers.filter(u => !u.badgeId.startsWith('TEST-') && !u.badgeId.startsWith('PEND-') && !u.badgeId.startsWith('SUP-'));
+  await saveUsers(cleanedUsers);
+
+  const allEmployees = await getEmployees();
+  const cleanedEmployees = allEmployees.filter(e => !e.employeeId.startsWith('TEST-') && !e.employeeId.startsWith('PEND-') && !e.employeeId.startsWith('SUP-'));
+  await saveEmployees(cleanedEmployees);
+});
+

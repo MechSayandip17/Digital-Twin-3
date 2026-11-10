@@ -4,8 +4,8 @@
   "isRunning": false,
   "simulatedSeconds": 4200,
   "activeOperatorName": "Plant Operator",
-  "lastSavedTimestamp": 1794331502353,
-  "lastSavedClock": "2026-11-10T17:25:02.353Z",
+  "lastSavedTimestamp": 1794333815720,
+  "lastSavedClock": "2026-11-10T18:03:35.720Z",
   "state": {
     "timeSeconds": 4200,
     "completedCount": 28,
@@ -13,8 +13,8 @@
     "oee": {
       "overallOEE": 92.4
     },
-    "_serverSavedTimestamp": 1794331502353,
-    "_savedWallTime": 1794331502353,
+    "_serverSavedTimestamp": 1794333815720,
+    "_savedWallTime": 1794333815720,
     "targetEnvironment": "SIMULATION"
   }
 }

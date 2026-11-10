@@ -20,6 +20,10 @@ import {
   getPendingPasswordResets,
   reviewPasswordReset,
   getTenantTelemetryCsv,
+  updateApplicant,
+  getEmployees,
+  saveEmployees,
+  updateEmployee,
 } from './src/server/db.js';
 import { ADMIN_EMAIL } from './src/types/auth.js';
 
@@ -176,6 +180,70 @@ async function startServer() {
 
       const verifierEmail = adminEmail || ADMIN_EMAIL;
       const result = await verifyUserAction(userId, approved, verifierEmail, rejectionReason);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 5b. Admin: Update applicant details (Protected)
+  app.put('/api/admin/applicants/:id', async (req: Request, res: Response) => {
+    try {
+      const { updates, adminEmail, adminBadge, adminPasscode } = req.body;
+      const headerAuth = (req.headers['x-admin-auth'] as string);
+      const actor = adminBadge || adminEmail || headerAuth;
+
+      if (!isAuthorizedAdmin(actor, adminPasscode)) {
+        return res.status(403).json({
+          success: false,
+          error: 'SECURITY VIOLATION: Only the 4 Designated System Administrators can edit applicant details.',
+        });
+      }
+
+      const applicantUpdates = updates || req.body;
+      const result = await updateApplicant(
+        req.params.id,
+        applicantUpdates,
+        adminEmail || ADMIN_EMAIL,
+        adminBadge || 'ADMIN'
+      );
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 5c. Workforce Employees: List all active employees
+  app.get('/api/employees', async (_req: Request, res: Response) => {
+    try {
+      const list = await getEmployees();
+      res.json({ success: true, employees: list });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 5d. Workforce Employees: Update employee details (Admin Protected)
+  app.put('/api/admin/employees/:id', async (req: Request, res: Response) => {
+    try {
+      const { updates, adminEmail, adminBadge, adminPasscode } = req.body;
+      const headerAuth = (req.headers['x-admin-auth'] as string);
+      const actor = adminBadge || adminEmail || headerAuth;
+
+      if (!isAuthorizedAdmin(actor, adminPasscode)) {
+        return res.status(403).json({
+          success: false,
+          error: 'SECURITY VIOLATION: Only the 4 Designated System Administrators can edit employee records.',
+        });
+      }
+
+      const empUpdates = updates || req.body;
+      const result = await updateEmployee(
+        req.params.id,
+        empUpdates,
+        adminEmail || ADMIN_EMAIL,
+        adminBadge || 'ADMIN'
+      );
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });

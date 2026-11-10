@@ -13,6 +13,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Employee, EmployeeRole, EmployeeShift, EmployeeStatus } from '../types/employee';
+import { apiClient } from '../services/apiClient';
 
 interface EmployeeManagementModalProps {
   isOpen: boolean;
@@ -109,27 +110,33 @@ export const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = (
         assignedStationId: formData.assignedStationId || 'ALL',
         shift: (formData.shift as EmployeeShift) || 'SHIFT_1_DAY',
         skillCertification: formData.skillCertification || 'General Manufacturing Certified',
-        hourlyWage: Number(formData.hourlyWage) || 30.0,
+        hourlyWage: Number(formData.hourlyWage) || 350.0,
         efficiencyRating: Number(formData.efficiencyRating) || 1.0,
         status: (formData.status as EmployeeStatus) || 'ACTIVE',
         hireDate: formData.hireDate || new Date().toISOString().split('T')[0],
       };
       onUpdateEmployees([...employees, newEmp]);
+      apiClient.updateEmployee(newEmp.id, newEmp).catch(() => {});
       setIsAddingNew(false);
     } else if (editingEmployeeId) {
+      let savedEmp: Employee | null = null;
       const updated = employees.map(emp => {
         if (emp.id === editingEmployeeId) {
-          return {
+          savedEmp = {
             ...emp,
             ...formData,
             name: formData.name?.trim() || emp.name,
             hourlyWage: Number(formData.hourlyWage) || emp.hourlyWage,
             efficiencyRating: Number(formData.efficiencyRating) || emp.efficiencyRating,
           } as Employee;
+          return savedEmp;
         }
         return emp;
       });
       onUpdateEmployees(updated);
+      if (savedEmp) {
+        apiClient.updateEmployee((savedEmp as Employee).id, savedEmp as Employee).catch(() => {});
+      }
       setEditingEmployeeId(null);
     }
   };

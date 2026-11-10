@@ -142,8 +142,23 @@ export async function signInWithGoogle(): Promise<FirebaseUser | null> {
   try {
     const cred = await signInWithPopup(auth, provider);
     return cred.user;
-  } catch (error) {
-    console.error('Firebase Google Sign-In error:', error);
+  } catch (error: any) {
+    const errCode = error?.code || '';
+    const errMsg = error?.message || '';
+
+    // Benign user cancellation: popup closed by user or cancelled request
+    if (
+      errCode === 'auth/popup-closed-by-user' ||
+      errCode === 'auth/cancelled-popup-request' ||
+      errCode === 'auth/popup-blocked' ||
+      errMsg.includes('popup-closed-by-user') ||
+      errMsg.includes('cancelled-popup-request')
+    ) {
+      // Intentional user dismissal: exit cleanly without logging error
+      return null;
+    }
+
+    console.warn('Firebase Google Sign-In notice:', errMsg);
     return null;
   }
 }
@@ -154,8 +169,8 @@ export async function signInWithGoogle(): Promise<FirebaseUser | null> {
 export async function logOutFirebase(): Promise<void> {
   try {
     await firebaseSignOut(auth);
-  } catch (error) {
-    console.error('Firebase Sign-Out error:', error);
+  } catch (error: any) {
+    console.warn('Firebase Sign-Out notice:', error?.message);
   }
 }
 

@@ -69,6 +69,7 @@ import {
   ShieldAlert,
   XCircle,
   Check,
+  Lock,
 } from 'lucide-react';
 import { OperatorLoginPortal } from './components/OperatorLoginPortal';
 import {
@@ -161,12 +162,28 @@ export default function App() {
   const [employees, setEmployees] = useState<Employee[]>(() => {
     try {
       const saved = localStorage.getItem('aerotwin_employees');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: Employee[] = JSON.parse(saved);
+        const clean = parsed.filter(e => !e.employeeId.includes('TEST') && !e.name.includes('test.') && !e.name.includes('TEST-'));
+        if (clean.length > 0) return clean;
+      }
     } catch {
       // ignore
     }
     return DEFAULT_EMPLOYEES;
   });
+
+  // Load and synchronize employee roster from server
+  useEffect(() => {
+    apiClient.getEmployees().then(list => {
+      if (list && list.length > 0) {
+        setEmployees(list);
+        try {
+          localStorage.setItem('aerotwin_employees', JSON.stringify(list));
+        } catch {}
+      }
+    });
+  }, []);
 
   const handleUpdateEmployees = (newEmployees: Employee[]) => {
     setEmployees(newEmployees);
@@ -255,62 +272,87 @@ export default function App() {
   const handleLogin = async (operator: OperatorProfile, environment: TwinEnvironment, organisation?: OrganisationRecord) => {
     const orgName = organisation?.name || operator.organisation || 'Mechanical Engg. Dept., IIESTS';
     const orgId = organisation?.id || operator.organisationId || 'iiests-mech';
+    const isSuperAdmin =
+      operator.role === 'SYSTEM_ADMIN' ||
+      operator.badgeId === 'CHIEF-ENG-01' ||
+      operator.badgeId === '2023MEB003' ||
+      operator.badgeId === '2023MEB015' ||
+      operator.badgeId === '2023MEB019' ||
+      operator.email === 'sayandipmallickclassf@gmail.com' ||
+      operator.email === 'rumapolosaha@gmail.com' ||
+      operator.email === 'nilesh.banik@mech.iiests.ac.in' ||
+      operator.email === 'soumyajit.chakraborty@mech.iiests.ac.in' ||
+      operator.email === 'chitrayan.biswas@mech.iiests.ac.in';
+
+    // Admins default to PRODUCTION mode (the live digital twin) unless explicitly in sandbox
+    const effectiveEnv: TwinEnvironment = isSuperAdmin && environment !== 'SIMULATION' && environment !== 'HISTORICAL'
+      ? 'PRODUCTION'
+      : environment;
+
     const updatedOp = { ...operator, organisation: orgName, organisationId: orgId };
     const session: AuthSession = {
       isAuthenticated: true,
       operator: updatedOp,
-      environment,
+      environment: effectiveEnv,
       sessionToken: `token-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       loginTimestamp: Date.now(),
     };
     setAuthSession(session);
     try {
       sessionStorage.setItem('digiTwin_auth_session', JSON.stringify(session));
-      const isProduction = environment === 'PRODUCTION';
+      const isProduction = effectiveEnv === 'PRODUCTION';
 
       if (isProduction) {
-        // First check local tenant isolation database
+        // PRODUCTION DIGITAL TWIN: Continuous uninterrupted physical twin SCADA
+        // 1. Check local tenant state
         const localTenant = localStorage.getItem(`aerotwin_tenant_state_${orgId}`);
         if (localTenant) {
           const parsedLocal = JSON.parse(localTenant);
           if (parsedLocal && parsedLocal.stations && parsedLocal.config) {
-            setSimulationState(parsedLocal);
+            setSimulationState({
+              ...parsedLocal,
+              targetEnvironment: 'PRODUCTION',
+              isRunning: true, // Keep running continuous twin! Never pause on admin login!
+            });
           }
         }
-        // Then check remote tenant database
+        // 2. Check remote server tenant database
         const remote = await apiClient.loadTenantState(orgId);
         const stateToLoad = (remote && remote.stations && remote.config) ? remote : (remote?.state?.stations ? remote.state : null);
         if (stateToLoad) {
-          let updatedState = { ...stateToLoad, targetEnvironment: environment };
-          // If simulation was running, catch up with real uninterrupted elapsed wall-clock time
-          if (stateToLoad.isRunning) {
-            updatedState.isRunning = true;
-            const serverSavedTime = stateToLoad._serverSavedTimestamp || remote._serverSavedTimestamp;
-            if (serverSavedTime) {
-              const elapsedRealSeconds = Math.max(0, (Date.now() - serverSavedTime) / 1000);
-              if (elapsedRealSeconds > 0.5 && elapsedRealSeconds < 86400 * 7) {
-                const speed = stateToLoad.simulationSpeed || 1;
-                const simSecondsToAdvance = elapsedRealSeconds * speed;
-                const maxChunks = 40;
-                const chunkDt = simSecondsToAdvance / maxChunks;
-                for (let i = 0; i < maxChunks; i++) {
-                  updatedState = tickSimulation(updatedState, chunkDt);
-                }
+          let updatedState = { ...stateToLoad, targetEnvironment: 'PRODUCTION', isRunning: true };
+          const serverSavedTime = stateToLoad._serverSavedTimestamp || remote._serverSavedTimestamp;
+          if (serverSavedTime) {
+            const elapsedRealSeconds = Math.max(0, (Date.now() - serverSavedTime) / 1000);
+            if (elapsedRealSeconds > 0.5 && elapsedRealSeconds < 86400 * 7) {
+              const speed = stateToLoad.simulationSpeed || 1;
+              const simSecondsToAdvance = elapsedRealSeconds * speed;
+              const maxChunks = 40;
+              const chunkDt = simSecondsToAdvance / maxChunks;
+              for (let i = 0; i < maxChunks; i++) {
+                updatedState = tickSimulation(updatedState, chunkDt);
               }
             }
           }
           setSimulationState(updatedState);
+        } else {
+          // Keep current state running in PRODUCTION
+          setSimulationState(prev => ({
+            ...prev,
+            targetEnvironment: 'PRODUCTION',
+            isRunning: true,
+          }));
         }
       } else {
-        // Sandbox environment: SIMULATION or HISTORICAL
-        // Decoupled from organizational database and server; runs in local sandbox
-        const sandboxKey = `aerotwin_sandbox_${environment.toLowerCase()}`;
+        // SANDBOX MODES: SIMULATION or HISTORICAL
+        // Decoupled from production live twin; inactive / paused until operator explicitly starts it
+        const sandboxKey = `aerotwin_sandbox_${effectiveEnv.toLowerCase()}`;
         const savedSandbox = localStorage.getItem(sandboxKey);
         if (savedSandbox) {
           try {
             const parsed = JSON.parse(savedSandbox);
             if (parsed && parsed.stations && parsed.config) {
-              setSimulationState({ ...parsed, targetEnvironment: environment, isRunning: false });
+              setSimulationState({ ...parsed, targetEnvironment: effectiveEnv, isRunning: false });
               return;
             }
           } catch {
@@ -319,8 +361,8 @@ export default function App() {
         }
         setSimulationState(prev => ({
           ...prev,
-          targetEnvironment: environment,
-          isRunning: false,
+          targetEnvironment: effectiveEnv,
+          isRunning: false, // Inactive until operator starts it in this sandbox session!
         }));
       }
     } catch {
@@ -347,6 +389,27 @@ export default function App() {
       email === 'chitrayan.biswas@mech.iiests.ac.in'
     );
   }, [authSession]);
+
+  // Permissions & Access Controls:
+  // 1. Finance & ERP: Only Admins AND the operator in charge of MRP/ERP (Plant Supervisor)
+  const canAccessFinance = useMemo(() => {
+    if (isAdmin) return true;
+    const role = authSession.operator?.role;
+    const perms = authSession.operator?.permissions || [];
+    return (
+      role === 'PLANT_SUPERVISOR' ||
+      role === 'ERP_MRP_CONTROLLER' ||
+      role === 'MRP_ERP_LEAD' ||
+      perms.includes('ERP_MRP_CONFIG') ||
+      perms.includes('FINANCIAL_ADMIN')
+    );
+  }, [isAdmin, authSession.operator]);
+
+  // 2. Simulation Time-Warp Controls: Only Admins can advance day, jump to lunch, or fast forward
+  const canControlSimulationTime = isAdmin;
+
+  // 3. Employee Roster Management: Only Admins can add or edit employee records
+  const canManageEmployees = isAdmin;
 
   // Auto-save tenant simulation state: PRODUCTION mode saves to isolated server & local tenant database
   useEffect(() => {
@@ -1101,7 +1164,12 @@ export default function App() {
             </button>
 
             <button
-              onClick={() => setActiveViewMode('finance_erp')}
+              onClick={() => {
+                if (!canAccessFinance) {
+                  setSweepToast('Access Restricted: Finance & ERP is restricted to Admins and the ERP/MRP Plant Supervisor.');
+                }
+                setActiveViewMode('finance_erp');
+              }}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
                 activeViewMode === 'finance_erp'
                   ? 'bg-gradient-to-r from-emerald-600 to-cyan-600 text-white shadow-lg shadow-emerald-950/50'
@@ -1110,9 +1178,15 @@ export default function App() {
             >
               <DollarSign className="w-4 h-4 text-emerald-300" />
               <span>3. Finance, Unit Economics & ERP (₹ INR)</span>
-              <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-700 px-1.5 py-0.2 rounded-full font-mono">
-                COGS + MRP
-              </span>
+              {canAccessFinance ? (
+                <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-700 px-1.5 py-0.2 rounded-full font-mono">
+                  COGS + MRP
+                </span>
+              ) : (
+                <span className="text-[10px] bg-amber-950 text-amber-300 border border-amber-800 px-1.5 py-0.2 rounded-full font-mono flex items-center gap-0.5">
+                  <Lock className="w-2.5 h-2.5" /> Gated
+                </span>
+              )}
             </button>
 
             <button
@@ -1151,16 +1225,38 @@ export default function App() {
 
         {/* VIEW 3: FINANCE, PER-UNIT ECONOMICS & ERP */}
         {activeViewMode === 'finance_erp' && (
-          <FinanceAndERPView
-            completedToday={simulationState.completedCount}
-            dailyTarget={simulationState.config.dailyTargetUnits}
-            employees={employees}
-            scrapCountToday={simulationState.rejectedCount}
-            simulatedDayCount={simulationState.config.simulatedDayCount}
-            simulatedDate={simulationState.config.simulatedDate}
-            currentOperator={authSession.operator}
-            isAdmin={isAdmin}
-          />
+          canAccessFinance ? (
+            <FinanceAndERPView
+              completedToday={simulationState.completedCount}
+              dailyTarget={simulationState.config.dailyTargetUnits}
+              employees={employees}
+              scrapCountToday={simulationState.rejectedCount}
+              simulatedDayCount={simulationState.config.simulatedDayCount}
+              simulatedDate={simulationState.config.simulatedDate}
+              currentOperator={authSession.operator}
+              isAdmin={isAdmin}
+            />
+          ) : (
+            <div className="bg-slate-900 border border-amber-900/40 rounded-2xl p-8 max-w-2xl mx-auto my-12 text-center space-y-4 shadow-2xl animate-in fade-in">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-950 border border-amber-700 flex items-center justify-center text-amber-400">
+                <Lock className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-white">
+                Finance & Unit Economics Restricted
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed max-w-lg mx-auto">
+                Access to the Financial Breakdown, Direct Labor Costs, Machine Depreciation, Raw Material Sourcing, and Unit Economics is strictly restricted to System Administrators and the designated Plant Supervisor (ERP/MRP Lead). Normal machine operators are not authorized to view or edit financial and pricing figures.
+              </p>
+              <div className="pt-2">
+                <button
+                  onClick={() => setActiveViewMode('simevents_twin')}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition"
+                >
+                  Return to Digital Twin SCADA
+                </button>
+              </div>
+            </div>
+          )
         )}
 
         {/* VIEW 4: ENERGY CONSUMPTION & SUSTAINABILITY ANALYTICS */}
@@ -1195,42 +1291,52 @@ export default function App() {
               </div>
 
               {/* Skip Hours Action Group */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                  <FastForward className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Fast-Forward:</span>
-                </span>
-                <button
-                  onClick={() => handleSkipHours(1)}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-mono font-bold transition shadow-sm"
-                  title="Skip forward 1 operating hour"
-                >
-                  +1h
-                </button>
-                <button
-                  onClick={() => handleSkipHours(2)}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-mono font-bold transition shadow-sm"
-                  title="Skip forward 2 operating hours"
-                >
-                  +2h
-                </button>
-                <button
-                  onClick={handleJumpToLunch}
-                  disabled={currentHour >= (simulationState.config.lunchBreakStartHour ?? 13.0)}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-amber-200 border border-amber-500/30 rounded-lg text-xs font-medium transition"
-                  title="Jump to Lunch Break (1:00 PM)"
-                >
-                  Jump to Lunch (1:00 PM)
-                </button>
-                <button
-                  onClick={handleJumpToEndOfShift}
-                  disabled={currentHour >= (simulationState.config.shiftStartHour + simulationState.config.shiftDurationHours)}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-indigo-200 border border-indigo-500/30 rounded-lg text-xs font-medium transition"
-                  title="Jump to Shift End (4:00 PM)"
-                >
-                  Jump to Shift End (4:00 PM)
-                </button>
-              </div>
+              {canControlSimulationTime ? (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                    <FastForward className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Fast-Forward:</span>
+                  </span>
+                  <button
+                    onClick={() => handleSkipHours(1)}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-mono font-bold transition shadow-sm"
+                    title="Skip forward 1 operating hour"
+                  >
+                    +1h
+                  </button>
+                  <button
+                    onClick={() => handleSkipHours(2)}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-mono font-bold transition shadow-sm"
+                    title="Skip forward 2 operating hours"
+                  >
+                    +2h
+                  </button>
+                  <button
+                    onClick={handleJumpToLunch}
+                    disabled={currentHour >= (simulationState.config.lunchBreakStartHour ?? 13.0)}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-amber-200 border border-amber-500/30 rounded-lg text-xs font-medium transition"
+                    title="Jump to Lunch Break (1:00 PM)"
+                  >
+                    Jump to Lunch (1:00 PM)
+                  </button>
+                  <button
+                    onClick={handleJumpToEndOfShift}
+                    disabled={currentHour >= (simulationState.config.shiftStartHour + simulationState.config.shiftDurationHours)}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-indigo-200 border border-indigo-500/30 rounded-lg text-xs font-medium transition"
+                    title="Jump to Shift End (4:00 PM)"
+                  >
+                    Jump to Shift End (4:00 PM)
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 px-2.5 py-1 bg-slate-950/80 border border-slate-800 rounded-lg text-[11px] font-mono text-slate-400">
+                  <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Real-time Pace</span>
+                  <span className="text-[10px] text-amber-400 bg-amber-950/60 border border-amber-800 px-1.5 py-0.2 rounded font-sans">
+                    Fast-Forward Admin Only
+                  </span>
+                </div>
+              )}
 
               {/* Conveyor Dispatch Mode Toggle */}
               <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-xl p-1">
@@ -1408,15 +1514,17 @@ export default function App() {
                 )}
               </div>
 
-              {/* Advance to Next Day Button */}
-              <button
-                onClick={() => setSimulationState(prev => advanceToNextDay(prev))}
-                className="px-3.5 py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-cyan-950/50 transition hover:scale-[1.02] active:scale-[0.98]"
-                title="Roll unfinished units into tomorrow's arrears, resume backlog pieces from their exact positions, reset shift clock to 08:00 AM, and dispatch next truck delivery"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-cyan-200" />
-                <span className="whitespace-nowrap">Advance to Next Day</span>
-              </button>
+              {/* Advance to Next Day Button (Admin Only) */}
+              {canControlSimulationTime && (
+                <button
+                  onClick={() => setSimulationState(prev => advanceToNextDay(prev))}
+                  className="px-3.5 py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-cyan-950/50 transition hover:scale-[1.02] active:scale-[0.98]"
+                  title="Roll unfinished units into tomorrow's arrears, resume backlog pieces from their exact positions, reset shift clock to 08:00 AM, and dispatch next truck delivery"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-cyan-200" />
+                  <span className="whitespace-nowrap">Advance to Next Day</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -1571,13 +1679,15 @@ export default function App() {
                     Comprehensive daily shift reconciliation showing finished assemblies, target adherence, and arrears backlog carryover.
                   </p>
                 </div>
-                <button
-                  onClick={() => setSimulationState(prev => advanceToNextDay(prev))}
-                  className="px-3 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow"
-                >
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>Advance Shift to Day {simulationState.config.simulatedDayCount + 1}</span>
-                </button>
+                {canControlSimulationTime && (
+                  <button
+                    onClick={() => setSimulationState(prev => advanceToNextDay(prev))}
+                    className="px-3 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Advance Shift to Day {simulationState.config.simulatedDayCount + 1}</span>
+                  </button>
+                )}
               </div>
 
               <div className="overflow-x-auto">

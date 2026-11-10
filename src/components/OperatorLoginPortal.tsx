@@ -29,6 +29,8 @@ import {
   Printer,
   RefreshCw,
   Activity,
+  Edit2,
+  Pencil,
 } from 'lucide-react';
 import {
   TwinEnvironment,
@@ -54,7 +56,7 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
   defaultOrganisation = DEFAULT_ORG_NAME,
 }) => {
   const [activeTab, setActiveTab] = useState<'signin' | 'signup' | 'admin'>('signin');
-  const [environment, setEnvironment] = useState<TwinEnvironment>('SIMULATION');
+  const [environment, setEnvironment] = useState<TwinEnvironment>('PRODUCTION');
 
   // Verified organisations registry
   const [verifiedOrgs, setVerifiedOrgs] = useState<OrganisationRecord[]>([]);
@@ -68,13 +70,13 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isPendingNotice, setIsPendingNotice] = useState(false);
 
-  // Sign Up inputs (Clean blank start)
+  // Sign Up inputs (Clean start with valid default organization)
   const [signupForm, setSignupForm] = useState({
     name: '',
     email: '',
     badgeId: '',
     department: '',
-    requestedOrganisation: '',
+    requestedOrganisation: defaultOrganisation || 'Mechanical Engg. Dept., IIESTS',
     role: 'PLANT_OPERATOR',
     password: '',
     confirmPassword: '',
@@ -136,6 +138,19 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
   // Institution Selection Dropdown for Registration
   const [selectedOrgDropdown, setSelectedOrgDropdown] = useState<string>('Mechanical Engg. Dept., IIESTS');
   const [customOrgName, setCustomOrgName] = useState<string>('');
+
+  // Admin: Editing Applicant State
+  const [editingApplicant, setEditingApplicant] = useState<UserAccount | null>(null);
+  const [applicantEditForm, setApplicantEditForm] = useState({
+    name: '',
+    badgeId: '',
+    email: '',
+    department: '',
+    organisationName: '',
+    role: 'PLANT_OPERATOR' as any,
+  });
+  const [isSavingApplicant, setIsSavingApplicant] = useState(false);
+  const [applicantSaveError, setApplicantSaveError] = useState<string | null>(null);
 
   // Real-Time Status Ticker
   const [tickerState, setTickerState] = useState({
@@ -423,7 +438,15 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
       }
     } catch (err: any) {
       setIsSubmitting(false);
-      setErrorMsg(err.message || 'Firebase Google Sign-In failed');
+      const isDismissal =
+        err?.code === 'auth/popup-closed-by-user' ||
+        err?.code === 'auth/cancelled-popup-request' ||
+        err?.message?.includes('popup-closed-by-user') ||
+        err?.message?.includes('cancelled-popup-request');
+
+      if (!isDismissal) {
+        setErrorMsg(err?.message || 'Firebase Google Sign-In could not be completed.');
+      }
     }
   };
 
@@ -433,7 +456,14 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
     setSignupErrorMsg(null);
     setSignupSuccessMsg(null);
 
-    if (!signupForm.name || !signupForm.email || !signupForm.badgeId || !signupForm.requestedOrganisation || !signupForm.password) {
+    const targetOrg = (
+      signupForm.requestedOrganisation?.trim() ||
+      (selectedOrgDropdown !== '__OTHER__' ? selectedOrgDropdown : customOrgName.trim()) ||
+      defaultOrganisation ||
+      'Mechanical Engg. Dept., IIESTS'
+    );
+
+    if (!signupForm.name || !signupForm.email || !signupForm.badgeId || !targetOrg || !signupForm.password) {
       setSignupErrorMsg('Please fill in all required fields.');
       return;
     }
@@ -451,11 +481,11 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
     setIsRegistering(true);
     try {
       const res = await apiClient.register({
-        name: signupForm.name,
-        email: signupForm.email,
-        badgeId: signupForm.badgeId,
-        department: signupForm.department || 'Discrete Event Operations',
-        requestedOrganisation: signupForm.requestedOrganisation,
+        name: signupForm.name.trim(),
+        email: signupForm.email.trim(),
+        badgeId: signupForm.badgeId.trim(),
+        department: signupForm.department.trim() || 'Discrete Event Operations',
+        requestedOrganisation: targetOrg,
         role: signupForm.role,
         password: signupForm.password,
       });
@@ -474,7 +504,7 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
         email: '',
         badgeId: '',
         department: '',
-        requestedOrganisation: '',
+        requestedOrganisation: defaultOrganisation || 'Mechanical Engg. Dept., IIESTS',
         role: 'PLANT_OPERATOR',
         password: '',
         confirmPassword: '',
@@ -484,6 +514,48 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
     } catch (err: any) {
       setIsRegistering(false);
       setSignupErrorMsg(err.message || 'Network error submitting registration.');
+    }
+  };
+
+  // Admin: Start Editing Applicant Details
+  const handleStartEditApplicant = (user: UserAccount) => {
+    setEditingApplicant(user);
+    setApplicantEditForm({
+      name: user.name,
+      badgeId: user.badgeId,
+      email: user.email,
+      department: user.department,
+      organisationName: user.organisationName,
+      role: user.role,
+    });
+    setApplicantSaveError(null);
+  };
+
+  // Admin: Save Applicant Details
+  const handleSaveApplicantDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingApplicant || !authenticatedAdmin) return;
+    setIsSavingApplicant(true);
+    setApplicantSaveError(null);
+    try {
+      const res = await apiClient.updateApplicant(
+        editingApplicant.id,
+        applicantEditForm,
+        authenticatedAdmin.email,
+        authenticatedAdmin.badgeId,
+        adminAuthInput.passcode
+      );
+      setIsSavingApplicant(false);
+      if (res.success) {
+        setAdminActionMsg(res.message);
+        setEditingApplicant(null);
+        await loadPendingUsers(authenticatedAdmin.badgeId);
+      } else {
+        setApplicantSaveError(res.message || 'Failed to update applicant details');
+      }
+    } catch (err: any) {
+      setIsSavingApplicant(false);
+      setApplicantSaveError(err.message || 'Network error updating applicant');
     }
   };
 
@@ -501,6 +573,19 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
     );
     if (res.success) {
       setAdminActionMsg(res.message);
+      // Synchronize employee to local active roster if created
+      if (res.newEmployee) {
+        try {
+          const local = localStorage.getItem('aerotwin_employees');
+          const existing: any[] = local ? JSON.parse(local) : [];
+          if (!existing.some((e: any) => e.employeeId === res.newEmployee!.employeeId)) {
+            existing.push(res.newEmployee);
+            localStorage.setItem('aerotwin_employees', JSON.stringify(existing));
+          }
+        } catch {
+          // ignore
+        }
+      }
       await loadPendingUsers(authenticatedAdmin.badgeId);
       await loadVerifiedOrgs();
     } else {
@@ -1542,7 +1627,16 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-2 shrink-0">
+                                <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEditApplicant(user)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs flex items-center gap-1 border border-cyan-700/50 transition font-medium"
+                                    title="Edit Applicant Registration Details"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5 text-cyan-400" />
+                                    <span>Edit</span>
+                                  </button>
                                   <button
                                     onClick={() => handleAdminVerify(user.id, true)}
                                     className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition"
@@ -1859,6 +1953,133 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
                 >
                   <KeyRound className="w-3.5 h-3.5" />
                   <span>{isResetting ? 'Submitting Application...' : 'Submit Application for Admin Approval'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin: Edit Applicant Details Modal */}
+      {editingApplicant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-cyan-500/60 w-full max-w-lg rounded-2xl p-6 shadow-2xl space-y-4 text-left">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-cyan-950/60 border border-cyan-800/80 text-cyan-400">
+                  <Edit2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Edit Applicant Registration</h3>
+                  <p className="text-[10px] text-slate-400">Modify applicant profile credentials prior to administrative verification</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingApplicant(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {applicantSaveError && (
+              <div className="p-3 rounded-xl bg-rose-950/70 border border-rose-600/70 text-rose-200 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{applicantSaveError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveApplicantDetails} className="space-y-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-300">Applicant Full Name *</label>
+                  <input
+                    type="text"
+                    value={applicantEditForm.name}
+                    onChange={(e) => setApplicantEditForm({ ...applicantEditForm, name: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-300">Badge ID / Employee ID *</label>
+                  <input
+                    type="text"
+                    value={applicantEditForm.badgeId}
+                    onChange={(e) => setApplicantEditForm({ ...applicantEditForm, badgeId: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-300">Corporate Email *</label>
+                  <input
+                    type="email"
+                    value={applicantEditForm.email}
+                    onChange={(e) => setApplicantEditForm({ ...applicantEditForm, email: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-300">Department / Division *</label>
+                  <input
+                    type="text"
+                    value={applicantEditForm.department}
+                    onChange={(e) => setApplicantEditForm({ ...applicantEditForm, department: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-300">Organisation / Institution *</label>
+                <input
+                  type="text"
+                  value={applicantEditForm.organisationName}
+                  onChange={(e) => setApplicantEditForm({ ...applicantEditForm, organisationName: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-300">Functional Role</label>
+                <select
+                  value={applicantEditForm.role}
+                  onChange={(e) => setApplicantEditForm({ ...applicantEditForm, role: e.target.value as any })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                >
+                  <option value="PLANT_OPERATOR">Plant Operator (CNC Machining & Workpiece Flow)</option>
+                  <option value="MAINTENANCE_LEAD">Maintenance Lead (Condition Monitoring & Repairs)</option>
+                  <option value="QUALITY_ENGINEER">Quality Engineer (Metrology, Scrap & Rework Audit)</option>
+                  <option value="PLANT_SUPERVISOR">Plant Supervisor (ERP, MRP & Production Scheduling)</option>
+                  <option value="ACADEMIC_RESEARCHER">Academic Researcher (Digital Twin Modeling)</option>
+                </select>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingApplicant(null)}
+                  className="px-3 py-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingApplicant}
+                  className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{isSavingApplicant ? 'Saving...' : 'Save Applicant Details'}</span>
                 </button>
               </div>
             </form>

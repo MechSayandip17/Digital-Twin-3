@@ -106,7 +106,7 @@
     "name": "Rajesh Sharma",
     "badgeId": "ME-OPR-4412",
     "role": "PLANT_OPERATOR",
-    "roleTitle": "Lead Shift Operator",
+    "roleTitle": "Lead Shift CNC Machinist",
     "organisationId": "iiests-mech",
     "organisationName": "Mechanical Engg. Dept., IIESTS",
     "department": "Advanced Manufacturing & Robotics Lab",
@@ -122,92 +122,9 @@
     ]
   },
   {
-    "id": "usr-opr-pending",
-    "email": "vikram.verma@tata-defense.in",
-    "password": "7340807db0d4dd75661952f02544182a4999ef506899dd979ca86eb46fa85ffe",
-    "name": "Vikram Verma",
-    "badgeId": "TASL-OPR-881",
-    "role": "PLANT_OPERATOR",
-    "roleTitle": "Aerospace Machining Cell Operator",
-    "organisationId": "tasl-aero",
-    "organisationName": "Tata Advanced Systems Aerospace Unit",
-    "department": "Precision Components Division",
-    "status": "APPROVED",
-    "createdAt": "2026-11-09T06:42:10.596Z",
-    "permissions": [
-      "VIEW_TWIN",
-      "CONTROL_CONVEYOR"
-    ],
-    "approvedAt": "2026-11-09T06:44:32.651Z",
-    "approvedBy": "sayandipmallickclassf@gmail.com"
-  },
-  {
-    "id": "usr-mw8w8rao",
-    "email": "test.1794206530605@aerospace-unit.in",
-    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
-    "name": "Suresh Kumar",
-    "badgeId": "TEST-OPR-0605",
-    "role": "PLANT_OPERATOR",
-    "roleTitle": "Certified Plant Operator",
-    "organisationId": "hal-aerospace-actuator-division",
-    "organisationName": "HAL Aerospace Actuator Division",
-    "department": "Hydraulic Actuators Unit",
-    "status": "APPROVED",
-    "createdAt": "2026-11-09T06:42:10.608Z",
-    "permissions": [
-      "VIEW_TWIN",
-      "CONTROL_CONVEYOR",
-      "LOG_QC"
-    ],
-    "approvedAt": "2026-11-09T06:42:10.612Z",
-    "approvedBy": "sayandipmallickclassf@gmail.com"
-  },
-  {
-    "id": "usr-mw8w8vxv",
-    "email": "test.1794206536621@aerospace-unit.in",
-    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
-    "name": "Suresh Kumar",
-    "badgeId": "TEST-OPR-6621",
-    "role": "PLANT_OPERATOR",
-    "roleTitle": "Certified Plant Operator",
-    "organisationId": "hal-aerospace-actuator-division",
-    "organisationName": "HAL Aerospace Actuator Division",
-    "department": "Hydraulic Actuators Unit",
-    "status": "APPROVED",
-    "createdAt": "2026-11-09T06:42:16.627Z",
-    "permissions": [
-      "VIEW_TWIN",
-      "CONTROL_CONVEYOR",
-      "LOG_QC"
-    ],
-    "approvedAt": "2026-11-09T06:42:16.632Z",
-    "approvedBy": "sayandipmallickclassf@gmail.com"
-  },
-  {
-    "id": "usr-mw8whdgh",
-    "email": "test.1794206932571@aerospace-unit.in",
-    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
-    "name": "Suresh Kumar",
-    "badgeId": "TEST-OPR-2571",
-    "role": "PLANT_OPERATOR",
-    "roleTitle": "Certified Plant Operator",
-    "organisationId": "hal-aerospace-actuator-division",
-    "organisationName": "HAL Aerospace Actuator Division",
-    "department": "Hydraulic Actuators Unit",
-    "status": "APPROVED",
-    "createdAt": "2026-11-09T06:48:52.577Z",
-    "permissions": [
-      "VIEW_TWIN",
-      "CONTROL_CONVEYOR",
-      "LOG_QC"
-    ],
-    "approvedAt": "2026-11-09T06:48:52.580Z",
-    "approvedBy": "sayandipmallickclassf@gmail.com"
-  },
-  {
     "id": "usr-opr-102",
     "email": "priyanka.banerjee@mech.iiests.ac.in",
-    "password": "ec6e1c25258002eb1c67d15c7f45da7945fa4c58778fd7d88faa5e53e3b4698d",
+    "password": "8bf729f5f3e2ba07cb421f6046e008ef4958665133b14fded2c7271c4664525f",
     "name": "Priyanka Banerjee",
     "badgeId": "ME-MNT-8891",
     "role": "MAINTENANCE_LEAD",
@@ -229,7 +146,7 @@
   {
     "id": "usr-opr-103",
     "email": "anirban.sengupta@mech.iiests.ac.in",
-    "password": "ec6e1c25258002eb1c67d15c7f45da7945fa4c58778fd7d88faa5e53e3b4698d",
+    "password": "8bf729f5f3e2ba07cb421f6046e008ef4958665133b14fded2c7271c4664525f",
     "name": "Anirban Sengupta",
     "badgeId": "ME-QAC-3309",
     "role": "QUALITY_ENGINEER",
@@ -251,7 +168,7 @@
   {
     "id": "usr-opr-104",
     "email": "maria.santos@mech.iiests.ac.in",
-    "password": "ec6e1c25258002eb1c67d15c7f45da7945fa4c58778fd7d88faa5e53e3b4698d",
+    "password": "8bf729f5f3e2ba07cb421f6046e008ef4958665133b14fded2c7271c4664525f",
     "name": "Maria Santos",
     "badgeId": "ME-OPR-4413",
     "role": "PLANT_OPERATOR",
@@ -272,7 +189,7 @@
   {
     "id": "usr-opr-105",
     "email": "karan.verma@mech.iiests.ac.in",
-    "password": "ec6e1c25258002eb1c67d15c7f45da7945fa4c58778fd7d88faa5e53e3b4698d",
+    "password": "8bf729f5f3e2ba07cb421f6046e008ef4958665133b14fded2c7271c4664525f",
     "name": "Karan Verma",
     "badgeId": "ME-ASM-9021",
     "role": "PLANT_OPERATOR",
@@ -293,7 +210,7 @@
   {
     "id": "usr-opr-106",
     "email": "deepak.kumar@mech.iiests.ac.in",
-    "password": "ec6e1c25258002eb1c67d15c7f45da7945fa4c58778fd7d88faa5e53e3b4698d",
+    "password": "8bf729f5f3e2ba07cb421f6046e008ef4958665133b14fded2c7271c4664525f",
     "name": "Deepak Kumar",
     "badgeId": "ME-PKG-6110",
     "role": "PLANT_OPERATOR",
@@ -312,144 +229,45 @@
     ]
   },
   {
-    "id": "usr-mwaxlovj",
-    "email": "test.1794329745959@aerospace-unit.in",
-    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
-    "name": "Suresh Kumar",
-    "badgeId": "TEST-OPR-5959",
+    "id": "usr-opr-107",
+    "email": "vikram.verma@tata-defense.in",
+    "password": "7340807db0d4dd75661952f02544182a4999ef506899dd979ca86eb46fa85ffe",
+    "name": "Vikram Verma",
+    "badgeId": "TASL-OPR-881",
     "role": "PLANT_OPERATOR",
-    "roleTitle": "Certified Plant Operator",
-    "organisationId": "hal-aerospace-actuator-division",
-    "organisationName": "HAL Aerospace Actuator Division",
-    "department": "Hydraulic Actuators Unit",
+    "roleTitle": "Aerospace Machining Cell Operator",
+    "organisationId": "tasl-aero",
+    "organisationName": "Tata Advanced Systems Aerospace Unit",
+    "department": "Precision Components Division",
     "status": "APPROVED",
-    "createdAt": "2026-11-10T16:55:45.967Z",
+    "createdAt": "2026-11-01T08:00:00Z",
+    "approvedAt": "2026-11-01T08:00:00Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com",
     "permissions": [
       "VIEW_TWIN",
-      "CONTROL_CONVEYOR",
-      "LOG_QC"
-    ],
-    "approvedAt": "2026-11-10T16:55:46.241Z",
-    "approvedBy": "sayandipmallickclassf@gmail.com"
-  },
-  {
-    "id": "usr-mwaxmccc",
-    "email": "pending.1794329776222@test-org.in",
-    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
-    "name": "Pending Operator",
-    "badgeId": "PEND-6222",
-    "role": "PLANT_OPERATOR",
-    "roleTitle": "Certified Plant Operator",
-    "organisationId": "unverified-test-org",
-    "organisationName": "Unverified Test Org",
-    "department": "Testing Hub",
-    "status": "PENDING_APPROVAL",
-    "createdAt": "2026-11-10T16:56:16.380Z",
-    "permissions": [
-      "VIEW_TWIN",
-      "CONTROL_CONVEYOR",
-      "LOG_QC"
+      "CONTROL_CONVEYOR"
     ]
   },
   {
-    "id": "usr-mwaxmcgm",
-    "email": "test.1794329776509@aerospace-unit.in",
+    "id": "usr-mwb03t2m",
+    "email": "debashis.roy@iiests.ac.in",
     "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
-    "name": "Suresh Kumar",
-    "badgeId": "TEST-OPR-6509",
-    "role": "PLANT_OPERATOR",
-    "roleTitle": "Certified Plant Operator",
-    "organisationId": "hal-aerospace-actuator-division",
-    "organisationName": "HAL Aerospace Actuator Division",
-    "department": "Hydraulic Actuators Unit",
+    "name": "Dr. Debashis Roy",
+    "badgeId": "SUP-8801",
+    "role": "PLANT_SUPERVISOR",
+    "roleTitle": "Production Cell Supervisor (ERP/MRP Lead)",
+    "organisationId": "iiests-mech",
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "department": "Advanced Production & ERP Command",
     "status": "APPROVED",
-    "createdAt": "2026-11-10T16:56:16.534Z",
+    "createdAt": "2026-11-10T18:05:50.446Z",
     "permissions": [
       "VIEW_TWIN",
       "CONTROL_CONVEYOR",
-      "LOG_QC"
+      "LOG_QC",
+      "ERP_MRP_CONFIG"
     ],
-    "approvedAt": "2026-11-10T16:56:16.562Z",
-    "approvedBy": "sayandipmallickclassf@gmail.com"
-  },
-  {
-    "id": "usr-mwaybw8v",
-    "email": "pending.1794330968566@test-org.in",
-    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
-    "name": "Pending Operator",
-    "badgeId": "PEND-8566",
-    "role": "PLANT_OPERATOR",
-    "roleTitle": "Certified Plant Operator",
-    "organisationId": "unverified-test-org",
-    "organisationName": "Unverified Test Org",
-    "department": "Testing Hub",
-    "status": "PENDING_APPROVAL",
-    "createdAt": "2026-11-10T17:16:08.575Z",
-    "permissions": [
-      "VIEW_TWIN",
-      "CONTROL_CONVEYOR",
-      "LOG_QC"
-    ]
-  },
-  {
-    "id": "usr-mwaybw9c",
-    "email": "test.1794330968585@aerospace-unit.in",
-    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
-    "name": "Suresh Kumar",
-    "badgeId": "TEST-OPR-8585",
-    "role": "PLANT_OPERATOR",
-    "roleTitle": "Certified Plant Operator",
-    "organisationId": "hal-aerospace-actuator-division",
-    "organisationName": "HAL Aerospace Actuator Division",
-    "department": "Hydraulic Actuators Unit",
-    "status": "APPROVED",
-    "createdAt": "2026-11-10T17:16:08.592Z",
-    "permissions": [
-      "VIEW_TWIN",
-      "CONTROL_CONVEYOR",
-      "LOG_QC"
-    ],
-    "approvedAt": "2026-11-10T17:16:08.603Z",
-    "approvedBy": "sayandipmallickclassf@gmail.com"
-  },
-  {
-    "id": "usr-mwaynbt9",
-    "email": "pending.1794331501954@test-org.in",
-    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
-    "name": "Pending Operator",
-    "badgeId": "PEND-1954",
-    "role": "PLANT_OPERATOR",
-    "roleTitle": "Certified Plant Operator",
-    "organisationId": "unverified-test-org",
-    "organisationName": "Unverified Test Org",
-    "department": "Testing Hub",
-    "status": "PENDING_APPROVAL",
-    "createdAt": "2026-11-10T17:25:01.965Z",
-    "permissions": [
-      "VIEW_TWIN",
-      "CONTROL_CONVEYOR",
-      "LOG_QC"
-    ]
-  },
-  {
-    "id": "usr-mwaync1j",
-    "email": "test.1794331502256@aerospace-unit.in",
-    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
-    "name": "Suresh Kumar",
-    "badgeId": "TEST-OPR-2256",
-    "role": "PLANT_OPERATOR",
-    "roleTitle": "Certified Plant Operator",
-    "organisationId": "hal-aerospace-actuator-division",
-    "organisationName": "HAL Aerospace Actuator Division",
-    "department": "Hydraulic Actuators Unit",
-    "status": "APPROVED",
-    "createdAt": "2026-11-10T17:25:02.263Z",
-    "permissions": [
-      "VIEW_TWIN",
-      "CONTROL_CONVEYOR",
-      "LOG_QC"
-    ],
-    "approvedAt": "2026-11-10T17:25:02.298Z",
+    "approvedAt": "2026-11-10T18:09:55.017Z",
     "approvedBy": "sayandipmallickclassf@gmail.com"
   }
 ]

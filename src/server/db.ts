@@ -13,7 +13,9 @@ import {
   ParameterChangeRequest,
   AdminAuditLog,
   PasswordResetApplication,
+  OperatorRole,
 } from '../types/auth';
+import { Employee, EmployeeRole, DEFAULT_EMPLOYEES } from '../types/employee';
 import { firestoreDb } from './firebaseAdmin.ts';
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
@@ -23,6 +25,7 @@ const TENANTS_DIR = path.join(DATA_DIR, 'tenants');
 const CHANGE_REQUESTS_FILE = path.join(DATA_DIR, 'change_requests.json');
 const AUDIT_LOGS_FILE = path.join(DATA_DIR, 'audit_logs.json');
 const PASSWORD_RESETS_FILE = path.join(DATA_DIR, 'password_resets.json');
+const EMPLOYEES_FILE = path.join(DATA_DIR, 'employees.json');
 
 function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password.trim()).digest('hex');
@@ -215,8 +218,10 @@ const SYSTEM_BASELINE_USERS: UserAccount[] = [
     organisationId: 'tasl-aero',
     organisationName: 'Tata Advanced Systems Aerospace Unit',
     department: 'Precision Components Division',
-    status: 'PENDING_APPROVAL',
+    status: 'APPROVED',
     createdAt: '2026-11-01T08:00:00Z',
+    approvedAt: '2026-11-01T08:00:00Z',
+    approvedBy: ADMIN_EMAIL,
     permissions: ['VIEW_TWIN', 'CONTROL_CONVEYOR'],
   },
 ];
@@ -295,7 +300,14 @@ export async function initializeDatabase() {
     await fs.writeFile(PASSWORD_RESETS_FILE, JSON.stringify([], null, 2), 'utf-8');
   }
 
-  // 5. Ensure Default Tenant Directory Exists
+  // 5. Initialize Employees File
+  try {
+    await fs.access(EMPLOYEES_FILE);
+  } catch {
+    await fs.writeFile(EMPLOYEES_FILE, JSON.stringify(DEFAULT_EMPLOYEES, null, 2), 'utf-8');
+  }
+
+  // 6. Ensure Default Tenant Directory Exists
   const defaultTenantDir = path.join(TENANTS_DIR, DEFAULT_ORG_ID);
   await fs.mkdir(defaultTenantDir, { recursive: true });
 }
@@ -450,8 +462,16 @@ export async function registerUser(input: {
     PLANT_OPERATOR: 'Certified Plant Operator',
     MAINTENANCE_LEAD: 'Senior Maintenance Specialist',
     QUALITY_ENGINEER: 'Quality Assurance Inspector',
-    PLANT_SUPERVISOR: 'Production Cell Supervisor',
+    PLANT_SUPERVISOR: 'Production Cell Supervisor (ERP/MRP Lead)',
     ACADEMIC_RESEARCHER: 'Digital Twin Researcher',
+  };
+
+  const permissionsMap: Record<string, string[]> = {
+    PLANT_OPERATOR: ['VIEW_TWIN', 'CONTROL_CONVEYOR', 'LOG_QC'],
+    MAINTENANCE_LEAD: ['VIEW_TWIN', 'TRIGGER_MAINTENANCE', 'REPLACE_TOOL', 'OVERRIDE_FAULT'],
+    QUALITY_ENGINEER: ['VIEW_TWIN', 'AUDIT_SCRAP', 'REWORK_ROUTING', 'EXPORT_TRACEABILITY'],
+    PLANT_SUPERVISOR: ['VIEW_TWIN', 'CONTROL_CONVEYOR', 'LOG_QC', 'ERP_MRP_CONFIG'],
+    ACADEMIC_RESEARCHER: ['VIEW_TWIN', 'EXPORT_TRACEABILITY'],
   };
 
   const newUser: UserAccount = {
@@ -467,7 +487,7 @@ export async function registerUser(input: {
     department: input.department.trim() || 'Manufacturing Cell Operations',
     status: 'PENDING_APPROVAL',
     createdAt: new Date().toISOString(),
-    permissions: ['VIEW_TWIN', 'CONTROL_CONVEYOR', 'LOG_QC'],
+    permissions: permissionsMap[role] || ['VIEW_TWIN', 'CONTROL_CONVEYOR', 'LOG_QC'],
   };
 
   users.push(newUser);
@@ -792,12 +812,137 @@ export async function getPendingUsers(): Promise<UserAccount[]> {
     .map(({ password, ...safe }) => safe as UserAccount);
 }
 
+export async function getEmployees(): Promise<Employee[]> {
+  await initializeDatabase();
+  try {
+    const raw = await fs.readFile(EMPLOYEES_FILE, 'utf-8');
+    const parsed: Employee[] = JSON.parse(raw);
+    // Sanitize any test entries
+    return parsed.filter(e => !e.employeeId.includes('TEST') && !e.name.includes('test.') && !e.name.includes('TEST-'));
+  } catch {
+    return DEFAULT_EMPLOYEES;
+  }
+}
+
+export async function saveEmployees(employees: Employee[]): Promise<void> {
+  await initializeDatabase();
+  await fs.writeFile(EMPLOYEES_FILE, JSON.stringify(employees, null, 2), 'utf-8');
+}
+
+export async function updateEmployee(
+  empId: string,
+  updates: Partial<Employee>,
+  adminEmail: string,
+  adminBadge?: string
+): Promise<{ success: boolean; message: string; employee?: Employee }> {
+  await initializeDatabase();
+  const employees = await getEmployees();
+  const idx = employees.findIndex((e) => e.id === empId || e.employeeId === empId);
+  if (idx === -1) {
+    return { success: false, message: 'Employee record not found.' };
+  }
+
+  const existing = employees[idx];
+  const updatedEmp: Employee = {
+    ...existing,
+    ...updates,
+    hourlyWage: updates.hourlyWage !== undefined ? Number(updates.hourlyWage) : existing.hourlyWage,
+    efficiencyRating: updates.efficiencyRating !== undefined ? Number(updates.efficiencyRating) : existing.efficiencyRating,
+  };
+  employees[idx] = updatedEmp;
+  await saveEmployees(employees);
+
+  await logAdminAction({
+    action: 'USER_APPROVED',
+    adminEmail,
+    adminBadge: adminBadge || 'ADMIN',
+    targetId: updatedEmp.id,
+    targetName: updatedEmp.name,
+    targetBadge: updatedEmp.employeeId,
+    details: `Employee record updated by administrator ${adminEmail}. Fields adjusted: ${Object.keys(updates).join(', ')}.`,
+  });
+
+  return {
+    success: true,
+    message: `Employee ${updatedEmp.name} (${updatedEmp.employeeId}) successfully updated.`,
+    employee: updatedEmp,
+  };
+}
+
+export async function updateApplicant(
+  applicantId: string,
+  updates: {
+    name?: string;
+    badgeId?: string;
+    email?: string;
+    department?: string;
+    organisationName?: string;
+    role?: OperatorRole;
+  },
+  adminEmail: string,
+  adminBadge?: string
+): Promise<{ success: boolean; message: string; user?: UserAccount }> {
+  await initializeDatabase();
+  const users = await getUsers();
+  const idx = users.findIndex((u) => u.id === applicantId);
+  if (idx === -1) {
+    return { success: false, message: 'Applicant account not found.' };
+  }
+
+  const user = users[idx];
+  if (updates.name) user.name = updates.name.trim();
+  if (updates.badgeId) user.badgeId = updates.badgeId.trim();
+  if (updates.email) user.email = updates.email.trim().toLowerCase();
+  if (updates.department) user.department = updates.department.trim();
+  if (updates.organisationName) user.organisationName = updates.organisationName.trim();
+  if (updates.role) {
+    user.role = updates.role;
+    const roleTitleMap: Record<string, string> = {
+      PLANT_OPERATOR: 'Certified Plant Operator',
+      MAINTENANCE_LEAD: 'Senior Maintenance Specialist',
+      QUALITY_ENGINEER: 'Quality Assurance Inspector',
+      PLANT_SUPERVISOR: 'Production Cell Supervisor (ERP/MRP Lead)',
+      ACADEMIC_RESEARCHER: 'Digital Twin Researcher',
+    };
+    user.roleTitle = roleTitleMap[updates.role] || user.roleTitle;
+
+    const permissionsMap: Record<string, string[]> = {
+      PLANT_OPERATOR: ['VIEW_TWIN', 'CONTROL_CONVEYOR', 'LOG_QC'],
+      MAINTENANCE_LEAD: ['VIEW_TWIN', 'TRIGGER_MAINTENANCE', 'REPLACE_TOOL', 'OVERRIDE_FAULT'],
+      QUALITY_ENGINEER: ['VIEW_TWIN', 'AUDIT_SCRAP', 'REWORK_ROUTING', 'EXPORT_TRACEABILITY'],
+      PLANT_SUPERVISOR: ['VIEW_TWIN', 'CONTROL_CONVEYOR', 'LOG_QC', 'ERP_MRP_CONFIG'],
+      ACADEMIC_RESEARCHER: ['VIEW_TWIN', 'EXPORT_TRACEABILITY'],
+    };
+    user.permissions = permissionsMap[updates.role] || user.permissions;
+  }
+
+  users[idx] = user;
+  await saveUsers(users);
+
+  await logAdminAction({
+    action: 'USER_APPROVED',
+    adminEmail,
+    adminBadge: adminBadge || 'ADMIN',
+    targetId: user.id,
+    targetName: user.name,
+    targetBadge: user.badgeId,
+    details: `Applicant registration details updated by administrator ${adminEmail}. Modified fields: ${Object.keys(updates).join(', ')}.`,
+  });
+
+  const { password, ...safeUser } = user;
+  return {
+    success: true,
+    message: `Applicant ${user.name} details successfully updated.`,
+    user: safeUser as UserAccount,
+  };
+}
+
 export async function verifyUserAction(
   userId: string,
   approved: boolean,
   adminEmail: string,
   rejectionReason?: string
-): Promise<{ success: boolean; message: string; user?: UserAccount }> {
+): Promise<{ success: boolean; message: string; user?: UserAccount; newEmployee?: Employee }> {
   await initializeDatabase();
   const users = await getUsers();
   const orgs = await getOrgs();
@@ -808,6 +953,8 @@ export async function verifyUserAction(
   }
 
   const user = users[userIdx];
+  let createdEmployee: Employee | undefined = undefined;
+
   if (approved) {
     user.status = 'APPROVED';
     user.approvedAt = new Date().toISOString();
@@ -825,12 +972,50 @@ export async function verifyUserAction(
     // Ensure tenant directory exists
     const tenantDir = path.join(TENANTS_DIR, user.organisationId);
     await fs.mkdir(tenantDir, { recursive: true });
+
+    // Automatically add newly approved applicant to active Employee roster
+    const employees = await getEmployees();
+    const existingEmp = employees.find((e) => e.employeeId.toUpperCase() === user.badgeId.toUpperCase());
+    if (!existingEmp) {
+      const mapRole: Record<string, EmployeeRole> = {
+        PLANT_OPERATOR: 'CNC_MACHINIST',
+        MAINTENANCE_LEAD: 'MAINTENANCE_ENGINEER',
+        QUALITY_ENGINEER: 'QC_INSPECTOR',
+        PLANT_SUPERVISOR: 'LINE_SUPERVISOR',
+        ACADEMIC_RESEARCHER: 'CNC_MACHINIST',
+      };
+      const stationMap: Record<string, string> = {
+        PLANT_OPERATOR: 'cnc_lathe',
+        MAINTENANCE_LEAD: 'ALL',
+        QUALITY_ENGINEER: 'qc_rm1',
+        PLANT_SUPERVISOR: 'ALL',
+        ACADEMIC_RESEARCHER: 'cnc_lathe',
+      };
+
+      createdEmployee = {
+        id: `emp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        employeeId: user.badgeId,
+        name: user.name,
+        role: mapRole[user.role] || 'CNC_MACHINIST',
+        assignedStationId: stationMap[user.role] || 'cnc_lathe',
+        shift: 'SHIFT_1_DAY',
+        skillCertification: 'Certified Plant Operator (Standard Grade)',
+        hourlyWage: 350.0,
+        efficiencyRating: 1.0,
+        status: 'ACTIVE',
+        hireDate: new Date().toISOString().split('T')[0],
+      };
+      employees.push(createdEmployee);
+      await saveEmployees(employees);
+    } else {
+      createdEmployee = existingEmp;
+    }
   } else {
     user.status = 'REJECTED';
     user.rejectionReason = rejectionReason || 'Declined by Chief Engineer / System Administrator.';
   }
 
-    users[userIdx] = user;
+  users[userIdx] = user;
   await saveUsers(users);
 
   // Log administrative audit event
@@ -844,7 +1029,7 @@ export async function verifyUserAction(
       targetName: user.name,
       targetBadge: user.badgeId,
       details: approved
-        ? `Operator account verified and approved for organisation "${user.organisationName}". Access unlocked.`
+        ? `Operator account verified and approved for organisation "${user.organisationName}". Added to workforce roster.`
         : `Operator registration declined. Reason: ${rejectionReason || 'Identity verification requirements not met.'}`,
     });
   } catch {
@@ -855,9 +1040,10 @@ export async function verifyUserAction(
   return {
     success: true,
     message: approved
-      ? `User ${user.name} and organisation ${user.organisationName} have been verified and approved.`
+      ? `User ${user.name} and organisation ${user.organisationName} have been verified and approved. Employee added to workforce roster.`
       : `User ${user.name} was rejected.`,
     user: safeUser as UserAccount,
+    newEmployee: createdEmployee,
   };
 }
 

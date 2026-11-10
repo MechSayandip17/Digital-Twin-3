@@ -4,6 +4,7 @@ import {
   UserAccount,
   ADMIN_EMAIL,
 } from '../types/auth';
+import { Employee, DEFAULT_EMPLOYEES } from '../types/employee';
 import {
   syncTenantStateToFirestore,
   testFirestoreConnection,
@@ -187,7 +188,7 @@ export const apiClient = {
     adminEmail?: string,
     adminBadge?: string,
     adminPasscode?: string
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{ success: boolean; message: string; user?: UserAccount; newEmployee?: Employee }> {
     try {
       const res = await fetch('/api/admin/verify-user', {
         method: 'POST',
@@ -208,6 +209,80 @@ export const apiClient = {
       return data;
     } catch (e: any) {
       return { success: false, message: e.message || 'Verification update failed' };
+    }
+  },
+
+  /**
+   * Admin: Updates any applicant's details before or after approval
+   */
+  async updateApplicant(
+    applicantId: string,
+    updates: Partial<UserAccount>,
+    adminEmail?: string,
+    adminBadge?: string,
+    adminPasscode?: string
+  ): Promise<{ success: boolean; message: string; user?: UserAccount }> {
+    try {
+      const res = await fetch(`/api/admin/applicants/${applicantId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-auth': adminBadge || adminEmail || ADMIN_EMAIL,
+        },
+        body: JSON.stringify({
+          updates,
+          adminEmail: adminEmail || ADMIN_EMAIL,
+          adminBadge,
+          adminPasscode,
+        }),
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, message: e.message || 'Failed to update applicant details' };
+    }
+  },
+
+  /**
+   * Retrieves active workforce employees from server
+   */
+  async getEmployees(): Promise<Employee[]> {
+    try {
+      const res = await fetch('/api/employees');
+      if (!res.ok) return DEFAULT_EMPLOYEES;
+      const data = await res.json();
+      return data.employees || DEFAULT_EMPLOYEES;
+    } catch {
+      return DEFAULT_EMPLOYEES;
+    }
+  },
+
+  /**
+   * Admin: Updates an employee's details (wage, station, shift, role, certification)
+   */
+  async updateEmployee(
+    empId: string,
+    updates: Partial<Employee>,
+    adminEmail?: string,
+    adminBadge?: string,
+    adminPasscode?: string
+  ): Promise<{ success: boolean; message: string; employee?: Employee }> {
+    try {
+      const res = await fetch(`/api/admin/employees/${empId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-auth': adminBadge || adminEmail || ADMIN_EMAIL,
+        },
+        body: JSON.stringify({
+          updates,
+          adminEmail: adminEmail || ADMIN_EMAIL,
+          adminBadge,
+          adminPasscode,
+        }),
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, message: e.message || 'Failed to update employee' };
     }
   },
 
