@@ -310,5 +310,146 @@
       "CONTROL_CONVEYOR",
       "LOG_QC"
     ]
+  },
+  {
+    "id": "usr-mwaxlovj",
+    "email": "test.1794329745959@aerospace-unit.in",
+    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "name": "Suresh Kumar",
+    "badgeId": "TEST-OPR-5959",
+    "role": "PLANT_OPERATOR",
+    "roleTitle": "Certified Plant Operator",
+    "organisationId": "hal-aerospace-actuator-division",
+    "organisationName": "HAL Aerospace Actuator Division",
+    "department": "Hydraulic Actuators Unit",
+    "status": "APPROVED",
+    "createdAt": "2026-11-10T16:55:45.967Z",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC"
+    ],
+    "approvedAt": "2026-11-10T16:55:46.241Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com"
+  },
+  {
+    "id": "usr-mwaxmccc",
+    "email": "pending.1794329776222@test-org.in",
+    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "name": "Pending Operator",
+    "badgeId": "PEND-6222",
+    "role": "PLANT_OPERATOR",
+    "roleTitle": "Certified Plant Operator",
+    "organisationId": "unverified-test-org",
+    "organisationName": "Unverified Test Org",
+    "department": "Testing Hub",
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-11-10T16:56:16.380Z",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC"
+    ]
+  },
+  {
+    "id": "usr-mwaxmcgm",
+    "email": "test.1794329776509@aerospace-unit.in",
+    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "name": "Suresh Kumar",
+    "badgeId": "TEST-OPR-6509",
+    "role": "PLANT_OPERATOR",
+    "roleTitle": "Certified Plant Operator",
+    "organisationId": "hal-aerospace-actuator-division",
+    "organisationName": "HAL Aerospace Actuator Division",
+    "department": "Hydraulic Actuators Unit",
+    "status": "APPROVED",
+    "createdAt": "2026-11-10T16:56:16.534Z",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC"
+    ],
+    "approvedAt": "2026-11-10T16:56:16.562Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com"
+  },
+  {
+    "id": "usr-mwaybw8v",
+    "email": "pending.1794330968566@test-org.in",
+    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "name": "Pending Operator",
+    "badgeId": "PEND-8566",
+    "role": "PLANT_OPERATOR",
+    "roleTitle": "Certified Plant Operator",
+    "organisationId": "unverified-test-org",
+    "organisationName": "Unverified Test Org",
+    "department": "Testing Hub",
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-11-10T17:16:08.575Z",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC"
+    ]
+  },
+  {
+    "id": "usr-mwaybw9c",
+    "email": "test.1794330968585@aerospace-unit.in",
+    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "name": "Suresh Kumar",
+    "badgeId": "TEST-OPR-8585",
+    "role": "PLANT_OPERATOR",
+    "roleTitle": "Certified Plant Operator",
+    "organisationId": "hal-aerospace-actuator-division",
+    "organisationName": "HAL Aerospace Actuator Division",
+    "department": "Hydraulic Actuators Unit",
+    "status": "APPROVED",
+    "createdAt": "2026-11-10T17:16:08.592Z",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC"
+    ],
+    "approvedAt": "2026-11-10T17:16:08.603Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com"
+  },
+  {
+    "id": "usr-mwaynbt9",
+    "email": "pending.1794331501954@test-org.in",
+    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "name": "Pending Operator",
+    "badgeId": "PEND-1954",
+    "role": "PLANT_OPERATOR",
+    "roleTitle": "Certified Plant Operator",
+    "organisationId": "unverified-test-org",
+    "organisationName": "Unverified Test Org",
+    "department": "Testing Hub",
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-11-10T17:25:01.965Z",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC"
+    ]
+  },
+  {
+    "id": "usr-mwaync1j",
+    "email": "test.1794331502256@aerospace-unit.in",
+    "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "name": "Suresh Kumar",
+    "badgeId": "TEST-OPR-2256",
+    "role": "PLANT_OPERATOR",
+    "roleTitle": "Certified Plant Operator",
+    "organisationId": "hal-aerospace-actuator-division",
+    "organisationName": "HAL Aerospace Actuator Division",
+    "department": "Hydraulic Actuators Unit",
+    "status": "APPROVED",
+    "createdAt": "2026-11-10T17:25:02.263Z",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC"
+    ],
+    "approvedAt": "2026-11-10T17:25:02.298Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com"
   }
 ]

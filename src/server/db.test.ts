@@ -30,7 +30,18 @@ test('Approved operator can log in with valid credentials', async () => {
 });
 
 test('Pending user login is strictly rejected with PENDING_APPROVAL status and admin notice', async () => {
-  const result = await loginUser('TASL-OPR-881', 'tata2026');
+  const pendingBadge = `PEND-${Date.now().toString().slice(-4)}`;
+  const pendingEmail = `pending.${Date.now()}@test-org.in`;
+  await registerUser({
+    name: 'Pending Operator',
+    email: pendingEmail,
+    password: 'password123',
+    badgeId: pendingBadge,
+    department: 'Testing Hub',
+    requestedOrganisation: 'Unverified Test Org',
+  });
+
+  const result = await loginUser(pendingBadge, 'password123');
   assert.equal(result.success, false, 'Pending user must NOT be allowed to log in');
   assert.equal(result.status, 'PENDING_APPROVAL');
   assert.ok(result.error?.includes('pending administrative verification'), 'Error must specify pending verification');

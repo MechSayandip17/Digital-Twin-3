@@ -1,13 +1,20 @@
 {
   "orgId": "test-org-tenant-01",
-  "lastSavedTimestamp": 1794206932583,
-  "lastSavedClock": "2026-11-09T06:48:52.583Z",
+  "targetEnvironment": "SIMULATION",
+  "isRunning": false,
+  "simulatedSeconds": 4200,
+  "activeOperatorName": "Plant Operator",
+  "lastSavedTimestamp": 1794331502353,
+  "lastSavedClock": "2026-11-10T17:25:02.353Z",
   "state": {
     "timeSeconds": 4200,
     "completedCount": 28,
     "activeFaults": 0,
     "oee": {
       "overallOEE": 92.4
-    }
+    },
+    "_serverSavedTimestamp": 1794331502353,
+    "_savedWallTime": 1794331502353,
+    "targetEnvironment": "SIMULATION"
   }
 }

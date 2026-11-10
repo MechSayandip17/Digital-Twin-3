@@ -9,12 +9,13 @@ try {
   if (!getApps().length) {
     adminApp = initializeApp({
       projectId: firebaseConfig.projectId,
+      storageBucket: firebaseConfig.storageBucket,
     });
   } else {
     adminApp = getApps()[0];
   }
 
-  // Use the provisioned database ID if configured, or default database
+  // Use the provisioned database ID
   const dbId = firebaseConfig.firestoreDatabaseId;
   firestoreDb = dbId ? getFirestore(adminApp, dbId) : getFirestore(adminApp);
 } catch (err) {

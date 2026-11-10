@@ -4,6 +4,13 @@ import {
   UserAccount,
   ADMIN_EMAIL,
 } from '../types/auth';
+import {
+  syncTenantStateToFirestore,
+  testFirestoreConnection,
+  subscribeTenantSimulationState,
+  subscribeParameterChangeRequests,
+  subscribeAdminAuditLogs,
+} from './firebaseClient';
 
 export interface LoginResponse {
   success: boolean;
@@ -359,9 +366,13 @@ export const apiClient = {
   },
 
   /**
-   * Saves tenant digital twin progress to per-organization database
+   * Saves tenant digital twin progress to per-organization database and Cloud Firestore
    */
   async saveTenantState(orgId: string, state: any): Promise<boolean> {
+    // 1. Concurrently sync directly to Firestore from the client
+    syncTenantStateToFirestore(orgId, state).catch(() => {});
+
+    // 2. Persist to Express server backend
     try {
       const res = await fetch(`/api/twin/state/${encodeURIComponent(orgId)}`, {
         method: 'POST',
@@ -372,6 +383,13 @@ export const apiClient = {
     } catch {
       return false;
     }
+  },
+
+  /**
+   * Tests and validates connection to Cloud Firestore
+   */
+  async testFirebase(): Promise<{ connected: boolean; databaseId: string; projectId: string; error?: string }> {
+    return testFirestoreConnection();
   },
 
   /**

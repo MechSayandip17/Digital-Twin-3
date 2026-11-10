@@ -82,6 +82,10 @@ import {
 } from './types/auth';
 import { EntityInspectionModal, InspectableStationId } from './components/EntityInspectionModal';
 import { apiClient } from './services/apiClient';
+import {
+  testFirestoreConnection,
+  subscribeParameterChangeRequests,
+} from './services/firebaseClient';
 
 export default function App() {
   const [simulationState, setSimulationState] = useState<PlantSimulationState>(() => {
@@ -193,8 +197,19 @@ export default function App() {
 
   const [isApprovalsModalOpen, setIsApprovalsModalOpen] = useState(false);
   const [changeRequests, setChangeRequests] = useState<ParameterChangeRequest[]>([]);
+  const [firebaseConnected, setFirebaseConnected] = useState<boolean>(true);
 
-  // Load change requests for admin review
+  // Validate Firestore connection on boot (per Firebase skill guidelines)
+  useEffect(() => {
+    testFirestoreConnection().then((res) => {
+      setFirebaseConnected(res.connected);
+      if (res.connected) {
+        console.log(`[DigiTwin] Firebase connected to ${res.projectId} (DB: ${res.databaseId}, Storage: ${res.storageBucket})`);
+      }
+    });
+  }, []);
+
+  // Load change requests for admin review and subscribe to real-time updates
   const loadChangeRequests = async () => {
     try {
       const list = await apiClient.getChangeRequests();
@@ -206,6 +221,14 @@ export default function App() {
 
   useEffect(() => {
     loadChangeRequests();
+    const unsub = subscribeParameterChangeRequests((cloudReqs) => {
+      if (Array.isArray(cloudReqs) && cloudReqs.length > 0) {
+        setChangeRequests(cloudReqs);
+      }
+    });
+    return () => {
+      if (unsub) unsub();
+    };
   }, []);
 
   // High-Security Terminal Enforcement:
@@ -837,6 +860,18 @@ export default function App() {
                 <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
                   TENANT DB ACTIVE
                 </span>
+              </div>
+              {/* Firebase Cloud Real-Time Persistence Badge */}
+              <div
+                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
+                  firebaseConnected
+                    ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                    : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                }`}
+                title="Google Cloud Storage & Firestore Linked (Project: onyx-sprite-rwpgt)"
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${firebaseConnected ? 'bg-amber-400 animate-pulse' : 'bg-rose-500'}`} />
+                <span>FIREBASE CLOUD</span>
               </div>
               {/* Environment Indicator Pill */}
               <div

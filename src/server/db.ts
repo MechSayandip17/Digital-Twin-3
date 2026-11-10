@@ -337,6 +337,18 @@ export async function logAdminAction(input: {
   };
   logs.unshift(newLog);
   await fs.writeFile(AUDIT_LOGS_FILE, JSON.stringify(logs.slice(0, 200), null, 2), 'utf-8');
+
+  // Synchronize with Cloud Firestore
+  if (firestoreDb) {
+    firestoreDb
+      .collection('audit_logs')
+      .doc(newLog.id)
+      .set(newLog)
+      .catch((err) => {
+        console.warn('Firestore audit_logs sync warning:', err.message);
+      });
+  }
+
   return newLog;
 }
 
@@ -348,6 +360,19 @@ export async function getUsers(): Promise<UserAccount[]> {
 
 export async function saveUsers(users: UserAccount[]): Promise<void> {
   await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
+
+  // Synchronize users with Cloud Firestore
+  if (firestoreDb) {
+    const batch = firestoreDb.batch();
+    for (const u of users) {
+      const docRef = firestoreDb.collection('users').doc(u.id);
+      const { password, ...safeUser } = u;
+      batch.set(docRef, { ...safeUser, updatedAt: new Date().toISOString() }, { merge: true });
+    }
+    batch.commit().catch((err) => {
+      console.warn('Firestore users sync warning:', err.message);
+    });
+  }
 }
 
 export async function getOrgs(): Promise<OrganisationRecord[]> {
@@ -358,6 +383,18 @@ export async function getOrgs(): Promise<OrganisationRecord[]> {
 
 export async function saveOrgs(orgs: OrganisationRecord[]): Promise<void> {
   await fs.writeFile(ORGS_FILE, JSON.stringify(orgs, null, 2), 'utf-8');
+
+  // Synchronize organisations with Cloud Firestore
+  if (firestoreDb) {
+    const batch = firestoreDb.batch();
+    for (const org of orgs) {
+      const docRef = firestoreDb.collection('organisations').doc(org.id);
+      batch.set(docRef, { ...org, updatedAt: new Date().toISOString() }, { merge: true });
+    }
+    batch.commit().catch((err) => {
+      console.warn('Firestore organisations sync warning:', err.message);
+    });
+  }
 }
 
 export async function getVerifiedOrgs(): Promise<OrganisationRecord[]> {
@@ -617,6 +654,17 @@ export async function requestPasswordReset(
   requests.unshift(newReq);
   await fs.writeFile(PASSWORD_RESETS_FILE, JSON.stringify(requests, null, 2), 'utf-8');
 
+  // Synchronize password reset request with Cloud Firestore
+  if (firestoreDb) {
+    firestoreDb
+      .collection('password_resets')
+      .doc(newReq.id)
+      .set(newReq)
+      .catch((err) => {
+        console.warn('Firestore password_resets sync warning:', err.message);
+      });
+  }
+
   return {
     success: true,
     message: `Password reset request submitted for ${user.name} (${user.badgeId}). It requires verification and approval from a System Administrator before taking effect.`,
@@ -678,6 +726,14 @@ export async function reviewPasswordReset(
     if (notes) requests[reqIdx].adminNotes = notes;
 
     await fs.writeFile(PASSWORD_RESETS_FILE, JSON.stringify(requests, null, 2), 'utf-8');
+
+    if (firestoreDb) {
+      firestoreDb
+        .collection('password_resets')
+        .doc(req.id)
+        .set(requests[reqIdx], { merge: true })
+        .catch(() => {});
+    }
 
     await logAdminAction({
       action: 'PASSWORD_RESET_APPROVED',
@@ -1054,6 +1110,18 @@ export async function getChangeRequests(): Promise<ParameterChangeRequest[]> {
 export async function saveChangeRequests(reqs: ParameterChangeRequest[]): Promise<void> {
   await initializeDatabase();
   await fs.writeFile(CHANGE_REQUESTS_FILE, JSON.stringify(reqs, null, 2), 'utf-8');
+
+  // Synchronize parameter change requests with Cloud Firestore
+  if (firestoreDb) {
+    const batch = firestoreDb.batch();
+    for (const req of reqs) {
+      const docRef = firestoreDb.collection('parameter_change_requests').doc(req.id);
+      batch.set(docRef, { ...req, updatedAt: new Date().toISOString() }, { merge: true });
+    }
+    batch.commit().catch((err) => {
+      console.warn('Firestore parameter_change_requests sync warning:', err.message);
+    });
+  }
 }
 
 export async function createChangeRequest(input: Omit<ParameterChangeRequest, 'id' | 'timestamp' | 'timestampStr' | 'status'>): Promise<ParameterChangeRequest> {
