@@ -14,6 +14,12 @@ import {
   getChangeRequests,
   createChangeRequest,
   reviewChangeRequest,
+  getProductionLiveStatus,
+  getAdminAuditLogs,
+  requestPasswordReset,
+  getPendingPasswordResets,
+  reviewPasswordReset,
+  getTenantTelemetryCsv,
 } from './src/server/db.js';
 import { ADMIN_EMAIL } from './src/types/auth.js';
 
@@ -176,10 +182,10 @@ async function startServer() {
     }
   });
 
-  // 3b. User Password Reset (Forgot Password Workflow)
+  // 3b. User Password Reset (Forgot Password Application - Requires Administrator Verification)
   app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
     try {
-      const { identifier, newPassword } = req.body;
+      const { identifier, newPassword, notes } = req.body;
       if (!identifier || !newPassword) {
         return res.status(400).json({
           success: false,
@@ -187,11 +193,51 @@ async function startServer() {
         });
       }
 
-      const { resetUserPassword } = await import('./src/server/db.js');
-      const result = await resetUserPassword(identifier, newPassword);
+      const result = await requestPasswordReset(identifier, newPassword, notes);
       if (!result.success) {
         return res.status(400).json(result);
       }
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 3c. Admin: Get Pending Password Reset Applications (Protected)
+  app.get('/api/admin/password-resets', async (_req: Request, res: Response) => {
+    try {
+      const pending = await getPendingPasswordResets();
+      res.json({ success: true, pendingResets: pending });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 3d. Admin: Review Password Reset Application (Approve / Reject) (Protected)
+  app.post('/api/admin/password-resets/review', async (req: Request, res: Response) => {
+    try {
+      const { requestId, approved, adminEmail, adminBadge, adminPasscode, notes } = req.body;
+      const headerAuth = (req.headers['x-admin-auth'] as string);
+      const actor = adminBadge || adminEmail || headerAuth;
+
+      if (!isAuthorizedAdmin(actor, adminPasscode)) {
+        return res.status(403).json({
+          success: false,
+          error: 'SECURITY VIOLATION: Only the 4 Designated System Administrators can authorize password resets.',
+        });
+      }
+
+      if (!requestId || typeof approved !== 'boolean') {
+        return res.status(400).json({ success: false, error: 'requestId and approved boolean required.' });
+      }
+
+      const result = await reviewPasswordReset(
+        requestId,
+        approved,
+        adminEmail || ADMIN_EMAIL,
+        adminBadge || 'ADMIN',
+        notes
+      );
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
@@ -286,6 +332,27 @@ async function startServer() {
     }
   });
 
+  // 5e. Admin Activity Audit Trail
+  app.get('/api/admin/audit-logs', async (_req: Request, res: Response) => {
+    try {
+      const logs = await getAdminAuditLogs();
+      res.json({ success: true, auditLogs: logs });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 5f. Real-Time Physical Asset Live Telemetry Status (Public for Login Portal)
+  app.get('/api/twin/live-status', async (req: Request, res: Response) => {
+    try {
+      const orgId = (req.query.orgId as string) || 'iiests-mech';
+      const status = await getProductionLiveStatus(orgId);
+      res.json({ success: true, ...status });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // 6. Multi-Tenant Digital Twin State: Load
   app.get('/api/twin/state/:orgId', async (req: Request, res: Response) => {
     try {
@@ -307,6 +374,22 @@ async function startServer() {
       }
       await saveTenantSimulationState(orgId, state);
       res.json({ success: true, message: `Digital twin state persisted for tenant ${orgId}` });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 7b. Multi-Tenant Production Telemetry CSV Download / View
+  app.get('/api/twin/telemetry-csv/:orgId', async (req: Request, res: Response) => {
+    try {
+      const { orgId } = req.params;
+      const csv = await getTenantTelemetryCsv(orgId);
+      if (!csv) {
+        return res.status(404).json({ success: false, error: 'No telemetry CSV logged yet for this organisation.' });
+      }
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="production_telemetry_${orgId}.csv"`);
+      res.send(csv);
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }

@@ -89,19 +89,67 @@ export const apiClient = {
   },
 
   /**
-   * Resets operator password (Forgot Password workflow)
+   * Submits a password reset application that requires System Administrator verification (Forgot Password workflow)
    */
-  async resetPassword(identifier: string, newPassword: string): Promise<{ success: boolean; message?: string; error?: string }> {
+  async resetPassword(identifier: string, newPassword: string, notes?: string): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier, newPassword }),
+        body: JSON.stringify({ identifier, newPassword, notes }),
       });
       const data = await res.json();
       return data;
     } catch (e: any) {
       return { success: false, error: e.message || 'Password reset request failed' };
+    }
+  },
+
+  /**
+   * Admin: Retrieves pending password reset applications awaiting verification (Protected)
+   */
+  async getPendingPasswordResets(): Promise<any[]> {
+    try {
+      const res = await fetch('/api/admin/password-resets');
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.pendingResets || [];
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Admin: Authorizes or declines a password reset application
+   */
+  async reviewPasswordReset(
+    requestId: string,
+    approved: boolean,
+    adminEmail?: string,
+    adminBadge?: string,
+    adminPasscode?: string,
+    notes?: string
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const res = await fetch('/api/admin/password-resets/review', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(adminBadge ? { 'x-admin-auth': adminBadge } : {}),
+        },
+        body: JSON.stringify({
+          requestId,
+          approved,
+          adminEmail,
+          adminBadge,
+          adminPasscode,
+          notes,
+        }),
+      });
+      const data = await res.json();
+      return data;
+    } catch (e: any) {
+      return { success: false, message: e.message || 'Failed to review password reset application.' };
     }
   },
   /**
@@ -222,6 +270,74 @@ export const apiClient = {
   },
 
   /**
+   * Retrieves administrative audit history
+   */
+  async getAdminAuditLogs(): Promise<any[]> {
+    try {
+      const res = await fetch('/api/admin/audit-logs');
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.auditLogs || [];
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Retrieves real-time status of the Production Live Physical Asset
+   */
+  async getProductionLiveStatus(orgId: string = 'iiests-mech'): Promise<{
+    isRunning: boolean;
+    targetEnvironment: string;
+    simulatedClock: string;
+    simulatedSeconds: number;
+    statusText: string;
+    organisationId?: string;
+    organisationName?: string;
+    organisationCode?: string;
+    activeOperator?: string;
+  }> {
+    try {
+      const res = await fetch(`/api/twin/live-status?orgId=${encodeURIComponent(orgId)}`);
+      if (!res.ok) {
+        return {
+          isRunning: false,
+          targetEnvironment: 'PRODUCTION',
+          simulatedClock: '08:00 AM (Day 1)',
+          simulatedSeconds: 8 * 3600,
+          statusText: 'IDLE / STANDBY',
+          organisationId: orgId,
+          organisationName: 'Mechanical Engg. Dept., IIESTS',
+          organisationCode: 'IIESTS-MECH',
+        };
+      }
+      const data = await res.json();
+      return {
+        isRunning: Boolean(data.isRunning),
+        targetEnvironment: data.targetEnvironment || 'PRODUCTION',
+        simulatedClock: data.simulatedClock || '08:00 AM (Day 1)',
+        simulatedSeconds: data.simulatedSeconds || 8 * 3600,
+        statusText: data.statusText || 'IDLE',
+        organisationId: data.organisationId || orgId,
+        organisationName: data.organisationName || 'Mechanical Engg. Dept., IIESTS',
+        organisationCode: data.organisationCode || 'IIESTS-MECH',
+        activeOperator: data.activeOperator,
+      };
+    } catch {
+      return {
+        isRunning: false,
+        targetEnvironment: 'PRODUCTION',
+        simulatedClock: '08:00 AM (Day 1)',
+        simulatedSeconds: 8 * 3600,
+        statusText: 'IDLE / STANDBY',
+        organisationId: orgId,
+        organisationName: 'Mechanical Engg. Dept., IIESTS',
+        organisationCode: 'IIESTS-MECH',
+      };
+    }
+  },
+
+  /**
    * Loads tenant digital twin state from per-organization database
    */
   async loadTenantState(orgId: string): Promise<any | null> {
@@ -229,7 +345,14 @@ export const apiClient = {
       const res = await fetch(`/api/twin/state/${encodeURIComponent(orgId)}`);
       if (!res.ok) return null;
       const data = await res.json();
-      return data.data?.state || null;
+      if (!data.success || !data.data) return null;
+      const raw = data.data;
+      const stateObj = raw.state ? { ...raw.state } : { ...raw };
+      if (raw._serverSavedTimestamp) stateObj._serverSavedTimestamp = raw._serverSavedTimestamp;
+      if (raw.lastSavedTimestamp) stateObj.lastSavedTimestamp = raw.lastSavedTimestamp;
+      if (raw.targetEnvironment) stateObj.targetEnvironment = raw.targetEnvironment;
+      if (raw.isRunning !== undefined && stateObj.isRunning === undefined) stateObj.isRunning = raw.isRunning;
+      return stateObj;
     } catch {
       return null;
     }

@@ -292,53 +292,65 @@ export const FactoryCanvas: React.FC<FactoryCanvasProps> = ({
 
         {/* Simulation Playback & Speed Controls */}
         <div className="flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-700/80 shadow-lg pointer-events-auto">
-          <button
-            onClick={() => {
-              if (isRunning && !isAdmin) {
-                if (onStopBlocked) onStopBlocked();
-                return;
-              }
-              onTogglePlay();
-            }}
-            className={`p-2 rounded-lg font-bold text-xs flex items-center gap-1.5 transition shadow-sm ${
-              isRunning
-                ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
-                : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
-            }`}
-            title={
-              isRunning
-                ? isAdmin
-                  ? 'Pause Simulation'
-                  : '🔒 Only System Administrators can pause/stop the simulation'
-                : 'Start Real-time Simulation'
-            }
-          >
-            {isRunning ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
-            <span className="hidden sm:inline">{isRunning ? 'Pause' : 'Simulate'}</span>
-          </button>
+          {(() => {
+            const isProduction = simulationState.targetEnvironment === 'PRODUCTION';
+            const canReset = isAdmin || !isProduction;
+            const canPause = isAdmin || !isProduction;
 
-          <button
-            onClick={onStep}
-            className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition"
-            title="Step forward +1s"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+            return (
+              <>
+                <button
+                  onClick={() => {
+                    if (isRunning && !canPause) {
+                      if (onStopBlocked) onStopBlocked();
+                      return;
+                    }
+                    onTogglePlay();
+                  }}
+                  className={`p-2 rounded-lg font-bold text-xs flex items-center gap-1.5 transition shadow-sm ${
+                    isRunning
+                      ? canPause
+                        ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                        : 'bg-amber-600/70 hover:bg-amber-500 text-amber-200 cursor-not-allowed'
+                      : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
+                  }`}
+                  title={
+                    isRunning
+                      ? canPause
+                        ? 'Pause Simulation'
+                        : '🔒 Only System Administrators can pause/stop the live production simulation'
+                      : 'Start Real-time Simulation'
+                  }
+                >
+                  {isRunning ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
+                  <span className="hidden sm:inline">{isRunning ? 'Pause' : 'Simulate'}</span>
+                </button>
 
-          <button
-            onClick={() => {
-              if (isAdmin) onReset();
-            }}
-            disabled={!isAdmin}
-            className={`p-2 rounded-lg transition ${
-              isAdmin
-                ? 'text-slate-300 hover:text-white hover:bg-slate-800'
-                : 'text-slate-600 opacity-40 cursor-not-allowed'
-            }`}
-            title={isAdmin ? 'Reset Simulation Entities' : '🔒 Resetting simulation is restricted to System Administrators'}
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
+                <button
+                  onClick={onStep}
+                  className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition"
+                  title="Step forward +1s"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (canReset) onReset();
+                  }}
+                  disabled={!canReset}
+                  className={`p-2 rounded-lg transition ${
+                    canReset
+                      ? 'text-slate-300 hover:text-white hover:bg-slate-800'
+                      : 'text-slate-600 opacity-40 cursor-not-allowed'
+                  }`}
+                  title={canReset ? 'Reset Simulation Entities' : '🔒 Resetting production simulation is restricted to System Administrators'}
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+              </>
+            );
+          })()}
 
           <div className="h-4 w-px bg-slate-800 mx-0.5" />
 

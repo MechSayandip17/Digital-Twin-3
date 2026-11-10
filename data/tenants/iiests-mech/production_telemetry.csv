@@ -1,0 +1,2 @@
+Timestamp_ISO,Timestamp_MS,Simulated_Clock,Day,Shift_Elapsed_Sec,Is_Running,Active_Operator,Finished_Goods,WIP_Entities,Scrap_Count,OEE_Pct,Active_Stations,Total_Energy_KWh,Estimated_Cost_INR
+"2026-11-10T10:12:50.033Z",1794305570033,"8:00 AM (Day 1)",1,0,false,"Plant Operator",0,0,0,0.0,0,0.00,0.00

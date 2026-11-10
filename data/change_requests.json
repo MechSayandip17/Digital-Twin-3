@@ -1,6 +1,33 @@
 [
   {
     "requestedByUserId": "emp-operator",
+    "requestedByName": "Priyanka Banerjee",
+    "requestedByRole": "PLANT_OPERATOR",
+    "requestedByBadge": "ME-MNT-8891",
+    "requesterName": "Priyanka Banerjee",
+    "requesterBadge": "ME-MNT-8891",
+    "organisationId": "iiests-mech",
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "title": "Predictive Lathe Spindle Calibration",
+    "category": "SHIFT_LOGISTICS",
+    "description": "Tighten vibration threshold to 1.8 mm/s RMS",
+    "reason": "Tighten vibration threshold to 1.8 mm/s RMS",
+    "proposedChanges": {
+      "vibrationLimit": 1.8
+    },
+    "proposedConfigChanges": {
+      "vibrationLimit": 1.8
+    },
+    "id": "pcr-mw99elmp-kmcg",
+    "timestamp": 1794228638209,
+    "timestampStr": "12:50:38 PM",
+    "createdAt": "2026-11-09T12:50:38.229Z",
+    "status": "APPROVED",
+    "reviewedByAdmin": "sayandipmallickclassf@gmail.com",
+    "reviewedAt": "2026-11-09T12:50:42.520Z"
+  },
+  {
+    "requestedByUserId": "emp-operator",
     "requestedByName": "Rajesh Sharma",
     "requestedByRole": "PLANT_OPERATOR",
     "requestedByBadge": "ME-OPR-4412",
@@ -22,6 +49,8 @@
     "timestamp": 1794216009838,
     "timestampStr": "9:20:09 AM",
     "createdAt": "2026-11-09T09:20:09.858Z",
-    "status": "PENDING_ADMIN_APPROVAL"
+    "status": "APPROVED",
+    "reviewedByAdmin": "sayandipmallickclassf@gmail.com",
+    "reviewedAt": "2026-11-09T12:58:22.559Z"
   }
 ]

@@ -6,6 +6,8 @@ export type OperatorRole =
   | 'QUALITY_ENGINEER'
   | 'PLANT_SUPERVISOR'
   | 'ACADEMIC_RESEARCHER'
+  | 'ERP_MRP_CONTROLLER'
+  | 'MRP_ERP_LEAD'
   | 'SYSTEM_ADMIN';
 
 export type UserApprovalStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
@@ -144,6 +146,46 @@ export interface ParameterChangeRequest {
   rejectionNote?: string;
 }
 
+export interface PasswordResetApplication {
+  id: string;
+  userId: string;
+  userName: string;
+  userBadge: string;
+  userEmail: string;
+  organisationId: string;
+  organisationName: string;
+  newPasswordHash: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  requestedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  adminNotes?: string;
+}
+
+export interface AdminAuditLog {
+  id: string;
+  action:
+    | 'USER_APPROVED'
+    | 'USER_REJECTED'
+    | 'PROPOSAL_APPROVED'
+    | 'PROPOSAL_REJECTED'
+    | 'PASSWORD_RESET_APPROVED'
+    | 'PASSWORD_RESET_REJECTED'
+    | 'SIMULATION_RESET'
+    | 'SIMULATION_STOPPED'
+    | 'USER_REGISTERED';
+  adminEmail: string;
+  adminBadge: string;
+  adminName: string;
+  targetId?: string;
+  targetName?: string;
+  targetBadge?: string;
+  details: string;
+  timestamp: number;
+  timestampIso: string;
+  timestampStr: string;
+}
+
 export const PRECONFIGURED_OPERATORS: OperatorProfile[] = [
   // 1. The 4 Designated System Administrators (Full edit/change/approve authority)
   {
@@ -198,14 +240,14 @@ export const PRECONFIGURED_OPERATORS: OperatorProfile[] = [
     permissions: ['ALL_PERMISSIONS', 'ADMIN_VERIFY', 'ERP_MRP_CONFIG', 'FINANCIAL_ADMIN', 'RESET_SIM', 'STOP_SIMULATION', 'APPROVE_PARAMETER_CHANGES'],
     status: 'APPROVED',
   },
-  // 2. Production Cell Operators & Engineers
+  // 2. Production Cell Operators & Engineers (From Employee Roster)
   {
     id: 'op-101',
     email: 'operator@iiests.ac.in',
     name: 'Rajesh Sharma',
     badgeId: 'ME-OPR-4412',
     role: 'PLANT_OPERATOR',
-    roleTitle: 'Lead Shift Operator',
+    roleTitle: 'Lead Shift CNC Machinist',
     organisationId: 'iiests-mech',
     organisation: 'Mechanical Engg. Dept., IIESTS',
     department: 'Advanced Manufacturing & Robotics Lab',
@@ -214,11 +256,11 @@ export const PRECONFIGURED_OPERATORS: OperatorProfile[] = [
   },
   {
     id: 'op-102',
-    email: 'priyanka.maint@iiests.ac.in',
+    email: 'priyanka.banerjee@mech.iiests.ac.in',
     name: 'Priyanka Banerjee',
     badgeId: 'ME-MNT-8891',
     role: 'MAINTENANCE_LEAD',
-    roleTitle: 'Senior Maintenance Specialist',
+    roleTitle: 'Maintenance Engineer',
     organisationId: 'iiests-mech',
     organisation: 'Mechanical Engg. Dept., IIESTS',
     department: 'Condition Monitoring & Reliability Lab',
@@ -227,15 +269,67 @@ export const PRECONFIGURED_OPERATORS: OperatorProfile[] = [
   },
   {
     id: 'op-103',
-    email: 'anirban.qa@iiests.ac.in',
+    email: 'anirban.sengupta@mech.iiests.ac.in',
     name: 'Anirban Sengupta',
     badgeId: 'ME-QAC-3309',
     role: 'QUALITY_ENGINEER',
-    roleTitle: 'Quality Assurance Inspector',
+    roleTitle: 'QC Inspector',
     organisationId: 'iiests-mech',
     organisation: 'Mechanical Engg. Dept., IIESTS',
     department: 'Metrology & NDT Division',
     permissions: ['VIEW_TWIN', 'AUDIT_SCRAP', 'REWORK_ROUTING', 'EXPORT_TRACEABILITY'],
+    status: 'APPROVED',
+  },
+  {
+    id: 'op-104',
+    email: 'vikram.verma@tata-defense.in',
+    name: 'Vikram Verma',
+    badgeId: 'TASL-OPR-881',
+    role: 'PLANT_OPERATOR',
+    roleTitle: 'CNC Machinist (5-Axis Milling)',
+    organisationId: 'tasl-aero',
+    organisation: 'Tata Advanced Systems Aerospace Unit',
+    department: 'Precision Components Division',
+    permissions: ['VIEW_TWIN', 'CONTROL_CONVEYOR', 'LOG_QC'],
+    status: 'APPROVED',
+  },
+  {
+    id: 'op-105',
+    email: 'maria.santos@mech.iiests.ac.in',
+    name: 'Maria Santos',
+    badgeId: 'ME-OPR-4413',
+    role: 'PLANT_OPERATOR',
+    roleTitle: 'CNC Shaping & Hobbing Machinist',
+    organisationId: 'iiests-mech',
+    organisation: 'Mechanical Engg. Dept., IIESTS',
+    department: 'Precision Components Division',
+    permissions: ['VIEW_TWIN', 'CONTROL_CONVEYOR', 'LOG_QC'],
+    status: 'APPROVED',
+  },
+  {
+    id: 'op-106',
+    email: 'karan.verma@mech.iiests.ac.in',
+    name: 'Karan Verma',
+    badgeId: 'ME-ASM-9021',
+    role: 'PLANT_OPERATOR',
+    roleTitle: 'Final Assembly Specialist',
+    organisationId: 'iiests-mech',
+    organisation: 'Mechanical Engg. Dept., IIESTS',
+    department: 'Final Assembly Division',
+    permissions: ['VIEW_TWIN', 'CONTROL_CONVEYOR', 'LOG_QC'],
+    status: 'APPROVED',
+  },
+  {
+    id: 'op-107',
+    email: 'deepak.kumar@mech.iiests.ac.in',
+    name: 'Deepak Kumar',
+    badgeId: 'ME-PKG-6110',
+    role: 'PLANT_OPERATOR',
+    roleTitle: 'Packaging & Warehouse Logistics Lead',
+    organisationId: 'iiests-mech',
+    organisation: 'Mechanical Engg. Dept., IIESTS',
+    department: 'Packaging & Dispatch Hub',
+    permissions: ['VIEW_TWIN', 'CONTROL_CONVEYOR', 'LOG_QC'],
     status: 'APPROVED',
   },
 ];

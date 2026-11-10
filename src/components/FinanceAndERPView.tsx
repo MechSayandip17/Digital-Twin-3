@@ -25,6 +25,7 @@ import {
   DEFAULT_FINANCIAL_PARAMS,
 } from '../types/financeErp';
 import { Employee } from '../types/employee';
+import { OperatorProfile } from '../types/auth';
 import { formatIndianCurrency, formatIndianNumber } from '../utils/shiftSummaryReport';
 import {
   BOMNode,
@@ -43,6 +44,8 @@ interface FinanceAndERPViewProps {
   scrapCountToday: number;
   simulatedDayCount: number;
   simulatedDate: string;
+  currentOperator?: OperatorProfile;
+  isAdmin?: boolean;
 }
 
 export const FinanceAndERPView: React.FC<FinanceAndERPViewProps> = ({
@@ -52,6 +55,8 @@ export const FinanceAndERPView: React.FC<FinanceAndERPViewProps> = ({
   scrapCountToday,
   simulatedDayCount,
   simulatedDate,
+  currentOperator,
+  isAdmin,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'economics' | 'work_orders' | 'mrp_bom' | 'config'>('economics');
   const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<string>('WO-2026-001');
@@ -298,9 +303,17 @@ export const FinanceAndERPView: React.FC<FinanceAndERPViewProps> = ({
             <span className="text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
               INR ₹ Currency
             </span>
+            <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800 flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+              <span>
+                {currentOperator?.role === 'ERP_MRP_CONTROLLER' || isAdmin
+                  ? 'MRP & ERP Lead • Full Authority'
+                  : 'Operator Access • View & Change Enabled'}
+              </span>
+            </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Department of Mechanical Engineering, IIESTS • Multi-level BOM explosion, inventory allocation, and work order dispatching
+            Department of Mechanical Engineering, IIESTS • Multi-level BOM explosion, inventory allocation, and work order dispatching. All plant operators have full permission to view economics and adjust pricing or BOM configs.
           </p>
         </div>
 

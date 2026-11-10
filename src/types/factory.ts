@@ -427,5 +427,9 @@ export interface PlantSimulationState {
   performanceHistory: DailyPerformanceRecord[];
   itemLifecycleLedger?: ItemLifecycleRecord[];
   faultIncidentHistory?: FaultIncidentRecord[];
+  targetEnvironment?: 'PRODUCTION' | 'SIMULATION' | 'HISTORICAL';
+  activeOperatorName?: string;
+  _savedWallTime?: number;
+  _serverSavedTimestamp?: number;
 }
 

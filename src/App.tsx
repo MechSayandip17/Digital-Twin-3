@@ -174,9 +174,10 @@ export default function App() {
   };
 
   // Operator Authentication & Digital Twin Environment Session
+  // High-Security Terminal Standard: sessionStorage ensures browser refresh returns to portal
   const [authSession, setAuthSession] = useState<AuthSession>(() => {
     try {
-      const saved = localStorage.getItem('digiTwin_auth_session');
+      const saved = sessionStorage.getItem('digiTwin_auth_session');
       if (saved) return JSON.parse(saved);
     } catch {
       // ignore
@@ -184,7 +185,7 @@ export default function App() {
     return {
       isAuthenticated: false,
       operator: PRECONFIGURED_OPERATORS[0],
-      environment: 'SIMULATION',
+      environment: 'PRODUCTION',
       sessionToken: '',
       loginTimestamp: 0,
     };
@@ -207,6 +208,27 @@ export default function App() {
     loadChangeRequests();
   }, []);
 
+  // High-Security Terminal Enforcement:
+  // Browser refresh/reload clears auth session so user is logged out, but simulation state remains 100% saved in persistent storage
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const activeOrg = authSession.operator?.organisationId || 'iiests-mech';
+      try {
+        const stateWithWall = { ...simulationState, _savedWallTime: Date.now() };
+        localStorage.setItem('aerotwin_saved_simulation_full', JSON.stringify(stateWithWall));
+        localStorage.setItem(`aerotwin_tenant_state_${activeOrg}`, JSON.stringify(stateWithWall));
+        localStorage.setItem('aerotwin_last_saved_wall_time', String(Date.now()));
+      } catch {
+        // ignore
+      }
+      sessionStorage.removeItem('digiTwin_auth_session');
+      localStorage.removeItem('digiTwin_auth_session');
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [simulationState, authSession]);
+
   const handleLogin = async (operator: OperatorProfile, environment: TwinEnvironment, organisation?: OrganisationRecord) => {
     const orgName = organisation?.name || operator.organisation || 'Mechanical Engg. Dept., IIESTS';
     const orgId = organisation?.id || operator.organisationId || 'iiests-mech';
@@ -220,35 +242,63 @@ export default function App() {
     };
     setAuthSession(session);
     try {
-      localStorage.setItem('digiTwin_auth_session', JSON.stringify(session));
-      // First check local tenant isolation database
-      const localTenant = localStorage.getItem(`aerotwin_tenant_state_${orgId}`);
-      if (localTenant) {
-        const parsedLocal = JSON.parse(localTenant);
-        if (parsedLocal && parsedLocal.stations && parsedLocal.config) {
-          setSimulationState(parsedLocal);
-        }
-      }
-      // Then check remote tenant database
-      const remote = await apiClient.loadTenantState(orgId);
-      const stateToLoad = (remote && remote.stations && remote.config) ? remote : (remote?.state?.stations ? remote.state : null);
-      if (stateToLoad) {
-        // If simulation was running, catch up with real uninterrupted elapsed wall-clock time
-        let updatedState = stateToLoad;
-        if (stateToLoad.isRunning && stateToLoad._serverSavedTimestamp) {
-          const elapsedRealSeconds = Math.max(0, (Date.now() - stateToLoad._serverSavedTimestamp) / 1000);
-          if (elapsedRealSeconds > 1 && elapsedRealSeconds < 86400 * 7) {
-            // Apply uninterrupted simulation progression (bounded chunks to ensure fidelity)
-            const speed = stateToLoad.simulationSpeed || 1;
-            const simSecondsToAdvance = elapsedRealSeconds * speed;
-            const maxChunks = 40;
-            const chunkDt = simSecondsToAdvance / maxChunks;
-            for (let i = 0; i < maxChunks; i++) {
-              updatedState = tickSimulation(updatedState, chunkDt);
-            }
+      sessionStorage.setItem('digiTwin_auth_session', JSON.stringify(session));
+      const isProduction = environment === 'PRODUCTION';
+
+      if (isProduction) {
+        // First check local tenant isolation database
+        const localTenant = localStorage.getItem(`aerotwin_tenant_state_${orgId}`);
+        if (localTenant) {
+          const parsedLocal = JSON.parse(localTenant);
+          if (parsedLocal && parsedLocal.stations && parsedLocal.config) {
+            setSimulationState(parsedLocal);
           }
         }
-        setSimulationState(updatedState);
+        // Then check remote tenant database
+        const remote = await apiClient.loadTenantState(orgId);
+        const stateToLoad = (remote && remote.stations && remote.config) ? remote : (remote?.state?.stations ? remote.state : null);
+        if (stateToLoad) {
+          let updatedState = { ...stateToLoad, targetEnvironment: environment };
+          // If simulation was running, catch up with real uninterrupted elapsed wall-clock time
+          if (stateToLoad.isRunning) {
+            updatedState.isRunning = true;
+            const serverSavedTime = stateToLoad._serverSavedTimestamp || remote._serverSavedTimestamp;
+            if (serverSavedTime) {
+              const elapsedRealSeconds = Math.max(0, (Date.now() - serverSavedTime) / 1000);
+              if (elapsedRealSeconds > 0.5 && elapsedRealSeconds < 86400 * 7) {
+                const speed = stateToLoad.simulationSpeed || 1;
+                const simSecondsToAdvance = elapsedRealSeconds * speed;
+                const maxChunks = 40;
+                const chunkDt = simSecondsToAdvance / maxChunks;
+                for (let i = 0; i < maxChunks; i++) {
+                  updatedState = tickSimulation(updatedState, chunkDt);
+                }
+              }
+            }
+          }
+          setSimulationState(updatedState);
+        }
+      } else {
+        // Sandbox environment: SIMULATION or HISTORICAL
+        // Decoupled from organizational database and server; runs in local sandbox
+        const sandboxKey = `aerotwin_sandbox_${environment.toLowerCase()}`;
+        const savedSandbox = localStorage.getItem(sandboxKey);
+        if (savedSandbox) {
+          try {
+            const parsed = JSON.parse(savedSandbox);
+            if (parsed && parsed.stations && parsed.config) {
+              setSimulationState({ ...parsed, targetEnvironment: environment, isRunning: false });
+              return;
+            }
+          } catch {
+            // ignore
+          }
+        }
+        setSimulationState(prev => ({
+          ...prev,
+          targetEnvironment: environment,
+          isRunning: false,
+        }));
       }
     } catch {
       // ignore
@@ -275,9 +325,22 @@ export default function App() {
     );
   }, [authSession]);
 
-  // Auto-save tenant simulation state to multi-tenant database & tenant-isolated localStorage
+  // Auto-save tenant simulation state: PRODUCTION mode saves to isolated server & local tenant database
   useEffect(() => {
-    if (!authSession.isAuthenticated || !authSession.operator?.organisationId) return;
+    if (!authSession.isAuthenticated) return;
+    const isProduction = authSession.environment === 'PRODUCTION';
+
+    if (!isProduction) {
+      const sandboxKey = `aerotwin_sandbox_${authSession.environment.toLowerCase()}`;
+      try {
+        localStorage.setItem(sandboxKey, JSON.stringify(simulationState));
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    if (!authSession.operator?.organisationId) return;
     const orgId = authSession.operator.organisationId;
     const timer = setTimeout(() => {
       try {
@@ -425,15 +488,79 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [simulationState, authSession]);
 
+  // Multi-Device Production Twin Sync: keeps devices synchronized with continuous plant progression
+  useEffect(() => {
+    if (!authSession.isAuthenticated || authSession.environment !== 'PRODUCTION') return;
+    const orgId = authSession.operator?.organisationId || 'iiests-mech';
+
+    const syncInterval = setInterval(async () => {
+      try {
+        const remote = await apiClient.loadTenantState(orgId);
+        if (remote && remote.isRunning && !simulationState.isRunning) {
+          let updatedState = { ...remote, isRunning: true, targetEnvironment: 'PRODUCTION' };
+          const serverSavedTime = remote._serverSavedTimestamp;
+          if (serverSavedTime) {
+            const elapsed = Math.max(0, (Date.now() - serverSavedTime) / 1000);
+            if (elapsed > 0.5 && elapsed < 86400 * 7) {
+              const speed = remote.simulationSpeed || 1;
+              const simSecs = elapsed * speed;
+              const steps = 30;
+              const dt = simSecs / steps;
+              for (let i = 0; i < steps; i++) {
+                updatedState = tickSimulation(updatedState, dt);
+              }
+            }
+          }
+          setSimulationState(updatedState);
+        }
+      } catch {
+        // ignore
+      }
+    }, 4000);
+
+    return () => clearInterval(syncInterval);
+  }, [authSession.isAuthenticated, authSession.environment, simulationState.isRunning]);
+
   const handleTogglePlay = () => {
-    // Only designated admins can stop/pause the simulation
-    if (simulationState.isRunning && !isAdmin) {
+    const isProduction = authSession.environment === 'PRODUCTION';
+
+    // Only designated admins can stop/pause the simulation in Production mode
+    if (isProduction && simulationState.isRunning && !isAdmin) {
       setSweepToast(
-        'Action Blocked: Only authorized System Administrators (Sayandip Mallick, Nilesh Banik, Soumyajit Chakraborty, Chitrayan Biswas) can stop the digital twin simulation.'
+        'Action Blocked: Only authorized System Administrators (Sayandip Mallick, Nilesh Banik, Soumyajit Chakraborty, Chitrayan Biswas) can stop the live physical twin in Production mode. In Simulation or Historical mode, all operators have full control.'
       );
       return;
     }
-    setSimulationState(prev => ({ ...prev, isRunning: !prev.isRunning }));
+    const nextRunning = !simulationState.isRunning;
+    const activeEnv = authSession.environment || 'PRODUCTION';
+    const updated = {
+      ...simulationState,
+      isRunning: nextRunning,
+      targetEnvironment: activeEnv,
+      activeOperatorName: authSession.operator?.name || 'Plant Operator',
+      _savedWallTime: Date.now(),
+    };
+    setSimulationState(updated);
+
+    // Save immediately if Production mode
+    if (isProduction) {
+      const orgId = authSession.operator?.organisationId || 'iiests-mech';
+      try {
+        localStorage.setItem(`aerotwin_tenant_state_${orgId}`, JSON.stringify(updated));
+        localStorage.setItem('aerotwin_saved_simulation_full', JSON.stringify(updated));
+        localStorage.setItem('aerotwin_last_saved_wall_time', String(Date.now()));
+        apiClient.saveTenantState(orgId, updated);
+      } catch {
+        // ignore
+      }
+    } else {
+      const sandboxKey = `aerotwin_sandbox_${activeEnv.toLowerCase()}`;
+      try {
+        localStorage.setItem(sandboxKey, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+    }
   };
 
   const handleSpeedChange = (speed: number) => {
@@ -445,10 +572,12 @@ export default function App() {
   };
 
   const handleReset = () => {
-    // Only designated admins can reset the simulation
-    if (!isAdmin) {
+    const isProduction = authSession.environment === 'PRODUCTION';
+
+    // Only designated admins can reset the simulation in Production mode
+    if (isProduction && !isAdmin) {
       setSweepToast(
-        'Reset Blocked: Only authorized System Administrators can reset the digital twin simulation. Employees may submit parameter changes for admin approval.'
+        'Reset Blocked: Only authorized System Administrators can reset the digital twin simulation in Production mode. In Simulation and Historical modes, any operator can reset.'
       );
       return;
     }
@@ -469,9 +598,13 @@ export default function App() {
       };
       const next = createInitialPlantState(resetConfig, false);
       try {
-        localStorage.removeItem('aerotwin_saved_simulation_full');
-        if (authSession.operator?.organisationId) {
-          localStorage.removeItem(`aerotwin_tenant_state_${authSession.operator.organisationId}`);
+        if (isProduction) {
+          localStorage.removeItem('aerotwin_saved_simulation_full');
+          if (authSession.operator?.organisationId) {
+            localStorage.removeItem(`aerotwin_tenant_state_${authSession.operator.organisationId}`);
+          }
+        } else {
+          localStorage.removeItem(`aerotwin_sandbox_${authSession.environment.toLowerCase()}`);
         }
         localStorage.setItem('aerotwin_plant_config', JSON.stringify(next.config));
       } catch {
@@ -990,6 +1123,8 @@ export default function App() {
             scrapCountToday={simulationState.rejectedCount}
             simulatedDayCount={simulationState.config.simulatedDayCount}
             simulatedDate={simulationState.config.simulatedDate}
+            currentOperator={authSession.operator}
+            isAdmin={isAdmin}
           />
         )}
 

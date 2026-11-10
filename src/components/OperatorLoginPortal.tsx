@@ -23,6 +23,12 @@ import {
   Check,
   XCircle,
   Sparkles,
+  FileText,
+  History,
+  ClipboardList,
+  Printer,
+  RefreshCw,
+  Activity,
 } from 'lucide-react';
 import {
   TwinEnvironment,
@@ -87,6 +93,24 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
   const [forgotError, setForgotError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
+  // Real-Time Live Physical Asset Telemetry Status (Public for Login Portal)
+  const [liveStatus, setLiveStatus] = useState<{
+    isRunning: boolean;
+    targetEnvironment: string;
+    simulatedClock: string;
+    simulatedSeconds: number;
+    statusText: string;
+    activeOperator?: string;
+    organisationName?: string;
+    organisationCode?: string;
+  }>({
+    isRunning: false,
+    targetEnvironment: 'PRODUCTION',
+    simulatedClock: '08:00 AM (Day 1)',
+    simulatedSeconds: 0,
+    statusText: 'IDLE / STANDBY',
+  });
+
   // Authenticated Admin Governance Session State
   // FATAL ERROR FIX: Public visitors cannot view or approve/reject pending registrations without verified admin login
   const [adminAuthInput, setAdminAuthInput] = useState({
@@ -100,9 +124,17 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
     roleTitle: string;
   } | null>(null);
   const [adminLoginError, setAdminLoginError] = useState<string | null>(null);
+  const [adminSubTab, setAdminSubTab] = useState<'pending' | 'audit_history' | 'daily_report'>('pending');
+  const [adminAuditLogs, setAdminAuditLogs] = useState<any[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [pendingUsers, setPendingUsers] = useState<UserAccount[]>([]);
+  const [pendingPasswordResets, setPendingPasswordResets] = useState<any[]>([]);
   const [changeRequests, setChangeRequests] = useState<ParameterChangeRequest[]>([]);
   const [adminActionMsg, setAdminActionMsg] = useState<string | null>(null);
+
+  // Institution Selection Dropdown for Registration
+  const [selectedOrgDropdown, setSelectedOrgDropdown] = useState<string>('Mechanical Engg. Dept., IIESTS');
+  const [customOrgName, setCustomOrgName] = useState<string>('');
 
   // Real-Time Status Ticker
   const [tickerState, setTickerState] = useState({
@@ -113,17 +145,40 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
     currentTimeStr: new Date().toLocaleTimeString(),
   });
 
-  // Load verified organisations and change requests
+  // Load verified organisations, change requests, and live physical asset telemetry status
   useEffect(() => {
     loadVerifiedOrgs();
     loadChangeRequests();
-  }, []);
+
+    const fetchLiveStatus = async () => {
+      try {
+        const res = await apiClient.getProductionLiveStatus(selectedOrgId || 'iiests-mech');
+        if (res) {
+          setLiveStatus(res);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    fetchLiveStatus();
+    const interval = setInterval(fetchLiveStatus, 2500);
+    return () => clearInterval(interval);
+  }, [selectedOrgId]);
 
   const loadVerifiedOrgs = async () => {
     const orgs = await apiClient.getVerifiedOrganisations();
     setVerifiedOrgs(orgs);
     if (orgs.length > 0 && !orgs.some(o => o.id === selectedOrgId)) {
       setSelectedOrgId(orgs[0].id);
+    }
+  };
+
+  const loadPendingPasswordResets = async () => {
+    try {
+      const list = await apiClient.getPendingPasswordResets();
+      setPendingPasswordResets(list);
+    } catch {
+      setPendingPasswordResets([]);
     }
   };
 
@@ -135,11 +190,24 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
     }
     const list = await apiClient.getPendingUsers(activeBadge);
     setPendingUsers(list);
+    await loadPendingPasswordResets();
   };
 
   const loadChangeRequests = async () => {
     const list = await apiClient.getChangeRequests();
     setChangeRequests(list);
+  };
+
+  const loadAdminAuditLogs = async () => {
+    setIsLoadingLogs(true);
+    try {
+      const logs = await apiClient.getAdminAuditLogs();
+      setAdminAuditLogs(logs);
+    } catch {
+      // ignore
+    } finally {
+      setIsLoadingLogs(false);
+    }
   };
 
   // Authenticated Admin Login Handler
@@ -204,6 +272,22 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
     );
     setAdminActionMsg(res.message);
     await loadChangeRequests();
+    await loadAdminAuditLogs();
+  };
+
+  const handleReviewPasswordReset = async (requestId: string, approved: boolean) => {
+    if (!authenticatedAdmin) return;
+    setAdminActionMsg(null);
+    const res = await apiClient.reviewPasswordReset(
+      requestId,
+      approved,
+      authenticatedAdmin.email,
+      authenticatedAdmin.badgeId,
+      adminAuthInput.passcode
+    );
+    setAdminActionMsg(res.message);
+    await loadPendingPasswordResets();
+    await loadAdminAuditLogs();
   };
 
   // Ticker loop
@@ -243,23 +327,23 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
 
     setIsResetting(true);
     try {
-      const res = await apiClient.resetPassword(forgotInput.identifier.trim(), forgotInput.newPassword);
+      const res = await apiClient.resetPassword(forgotInput.identifier.trim(), forgotInput.newPassword, 'Operator password reset request');
       setIsResetting(false);
       if (res.success) {
-        setForgotMsg(res.message || 'Password updated successfully! You can now sign in.');
+        setForgotMsg(res.message || 'Application submitted to System Administrators for approval. Once approved, you will be able to log in with your new passcode.');
         setOperatorId(forgotInput.identifier.trim());
         setPassword('');
         setTimeout(() => {
           setIsForgotModalOpen(false);
           setForgotMsg(null);
           setForgotInput({ identifier: '', newPassword: '', confirmNewPassword: '' });
-        }, 2200);
+        }, 3500);
       } else {
-        setForgotError(res.error || res.message || 'Password reset request failed.');
+        setForgotError(res.error || res.message || 'Password reset application failed.');
       }
     } catch (err: any) {
       setIsResetting(false);
-      setForgotError(err.message || 'Network error updating password.');
+      setForgotError(err.message || 'Network error submitting password reset application.');
     }
   };
 
@@ -479,18 +563,30 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
           <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-1 mb-4 text-xs font-semibold">
             <button
               onClick={() => { setActiveTab('signin'); setErrorMsg(null); }}
+              disabled={Boolean(authenticatedAdmin)}
               className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 transition ${
-                activeTab === 'signin' ? 'bg-cyan-600 text-white font-bold shadow' : 'text-slate-400 hover:text-slate-200'
+                Boolean(authenticatedAdmin)
+                  ? 'opacity-40 cursor-not-allowed text-slate-600 bg-slate-950/40'
+                  : activeTab === 'signin'
+                  ? 'bg-cyan-600 text-white font-bold shadow'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
+              title={Boolean(authenticatedAdmin) ? 'Locked during active Admin Governance session. Lock/Sign Out of Admin Portal to re-enable.' : undefined}
             >
               <KeyRound className="w-3.5 h-3.5" />
               <span>Operator Sign In</span>
             </button>
             <button
               onClick={() => { setActiveTab('signup'); setSignupErrorMsg(null); }}
+              disabled={Boolean(authenticatedAdmin)}
               className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 transition ${
-                activeTab === 'signup' ? 'bg-cyan-600 text-white font-bold shadow' : 'text-slate-400 hover:text-slate-200'
+                Boolean(authenticatedAdmin)
+                  ? 'opacity-40 cursor-not-allowed text-slate-600 bg-slate-950/40'
+                  : activeTab === 'signup'
+                  ? 'bg-cyan-600 text-white font-bold shadow'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
+              title={Boolean(authenticatedAdmin) ? 'Locked during active Admin Governance session. Lock/Sign Out of Admin Portal to re-enable.' : undefined}
             >
               <UserPlus className="w-3.5 h-3.5" />
               <span>Register Account</span>
@@ -525,6 +621,62 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
           {/* TAB 1: SIGN IN */}
           {activeTab === 'signin' && (
             <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 sm:p-7 shadow-2xl backdrop-blur-xl space-y-5 animate-fadeIn">
+              {/* Real-Time Physical Asset Live Telemetry Status Banner */}
+              <div
+                className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition-all ${
+                  liveStatus.isRunning
+                    ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                    : 'bg-slate-950 border-slate-800/80 text-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="relative flex items-center justify-center">
+                    {liveStatus.isRunning ? (
+                      <span className="relative flex h-3.5 w-3.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+                      </span>
+                    ) : (
+                      <span className="h-3 w-3 rounded-full bg-slate-600"></span>
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-bold flex items-center gap-2 flex-wrap">
+                      <span className="text-white text-xs">Production Live Physical Asset:</span>
+                      {liveStatus.isRunning ? (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-bold tracking-wide">
+                          RUNNING
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] bg-slate-800 text-slate-400 border border-slate-700 font-mono font-semibold">
+                          IDLE / PAUSED
+                        </span>
+                      )}
+                      <span className="text-slate-500">•</span>
+                      <span className="text-cyan-300 font-semibold text-[11px]">
+                        {liveStatus.organisationName || verifiedOrgs.find(o => o.id === selectedOrgId)?.name || 'Mechanical Engg. Dept., IIESTS'}
+                        {liveStatus.organisationCode ? ` (${liveStatus.organisationCode})` : ''}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      <span>Simulated Plant Clock:</span>
+                      <strong className={liveStatus.isRunning ? 'text-emerald-300 font-mono' : 'text-slate-200 font-mono'}>
+                        {liveStatus.simulatedClock}
+                      </strong>
+                      <span className="text-slate-600">•</span>
+                      <span>Digital Twin Stream: {liveStatus.isRunning ? 'Active Uninterrupted' : 'Standby'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-left sm:text-right shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800">
+                  <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-mono">Stream Telemetry</span>
+                  <span className={`text-[11px] font-mono font-bold ${liveStatus.isRunning ? 'text-emerald-400' : 'text-slate-400'}`}>
+                    {liveStatus.isRunning ? 'SYNCHRONIZED' : 'STANDBY'}
+                  </span>
+                </div>
+              </div>
+
               {/* Environment Selector */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
@@ -822,18 +974,60 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-slate-300">Requested Organisation Name *</label>
-                  <input
-                    type="text"
-                    value={signupForm.requestedOrganisation}
-                    onChange={(e) => setSignupForm({ ...signupForm, requestedOrganisation: e.target.value })}
-                    placeholder="e.g. Tata Advanced Systems Aerospace Unit"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                    required
-                  />
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-300">Select Organisation / Institution *</label>
+                  <select
+                    value={selectedOrgDropdown}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedOrgDropdown(val);
+                      if (val !== '__OTHER__') {
+                        setSignupForm(prev => ({ ...prev, requestedOrganisation: val }));
+                      } else {
+                        setSignupForm(prev => ({ ...prev, requestedOrganisation: customOrgName }));
+                      }
+                    }}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 font-sans"
+                  >
+                    {verifiedOrgs.map((org) => (
+                      <option key={org.id} value={org.name}>
+                        {org.name} ({org.code})
+                      </option>
+                    ))}
+                    {/* Common engineering institutions if not already listed */}
+                    {!verifiedOrgs.some(o => o.name.includes('Tata')) && (
+                      <option value="Tata Advanced Systems Aerospace Unit">
+                        Tata Advanced Systems Aerospace Unit (TASL-AERO-01)
+                      </option>
+                    )}
+                    {!verifiedOrgs.some(o => o.name.includes('HAL')) && (
+                      <option value="HAL Aerospace Actuator Division">
+                        HAL Aerospace Actuator Division (HAL-AERO-01)
+                      </option>
+                    )}
+                    <option value="__OTHER__">+ Other / Unlisted Organisation (Type Full Name Below)</option>
+                  </select>
+
+                  {selectedOrgDropdown === '__OTHER__' && (
+                    <div className="pt-1.5 space-y-1 animate-fadeIn">
+                      <label className="text-[10px] text-cyan-400 font-semibold block">Type Full Institution / Organisation Name *</label>
+                      <input
+                        type="text"
+                        value={customOrgName}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomOrgName(val);
+                          setSignupForm(prev => ({ ...prev, requestedOrganisation: val }));
+                        }}
+                        placeholder="e.g. National Aerospace Laboratories (NAL) or IIT Kharagpur"
+                        className="w-full bg-slate-950 border border-cyan-700/80 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                        required
+                      />
+                    </div>
+                  )}
+
                   <p className="text-[10px] text-slate-500">
-                    Each organization receives an isolated database tenant once approved by an Admin.
+                    Each verified organization receives an isolated database tenant maintained securely on the server.
                   </p>
                 </div>
 
@@ -1034,167 +1228,463 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
                     </span>
                   </div>
 
-                  {/* 1. Pending Parameter Change Proposals */}
-                  <div className="space-y-2 pt-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-slate-300 flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                        Pending Parameter Change Proposals ({changeRequests.filter(r => r.status === 'PENDING_ADMIN_APPROVAL').length})
-                      </span>
-                      <button
-                        onClick={loadChangeRequests}
-                        className="text-[11px] text-cyan-400 hover:underline"
-                      >
-                        Refresh
-                      </button>
-                    </div>
+                  {/* Admin Governance Sub-Navigation */}
+                  <div className="flex bg-slate-950 border border-slate-800 rounded-xl p-1 gap-1 text-xs font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setAdminSubTab('pending')}
+                      className={`flex-1 py-1.5 px-2.5 rounded-lg flex items-center justify-center gap-1.5 transition ${
+                        adminSubTab === 'pending'
+                          ? 'bg-indigo-600 text-white font-bold shadow'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <User className="w-3.5 h-3.5" />
+                      <span>Approvals & Proposals</span>
+                      {(pendingUsers.length > 0 || changeRequests.filter(r => r.status === 'PENDING_ADMIN_APPROVAL').length > 0 || pendingPasswordResets.length > 0) && (
+                        <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-amber-400 text-slate-950 font-bold">
+                          {pendingUsers.length + changeRequests.filter(r => r.status === 'PENDING_ADMIN_APPROVAL').length + pendingPasswordResets.length}
+                        </span>
+                      )}
+                    </button>
 
-                    {changeRequests.filter(r => r.status === 'PENDING_ADMIN_APPROVAL').length === 0 ? (
-                      <div className="py-4 text-center border border-dashed border-slate-800 rounded-xl text-slate-400 text-xs">
-                        <p className="text-slate-300 font-medium">No Pending Parameter Proposals</p>
-                        <p className="text-slate-500 text-[10px] mt-0.5">
-                          When plant operators submit adjustments to arrival intervals, batch sizes, or failure rates, they require admin approval here.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                        {changeRequests
-                          .filter(r => r.status === 'PENDING_ADMIN_APPROVAL')
-                          .map((req) => (
-                            <div
-                              key={req.id}
-                              className="p-3 rounded-xl bg-slate-950 border border-amber-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                            >
-                              <div className="space-y-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-bold text-amber-300 text-xs">{req.requesterName}</span>
-                                  <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300">
-                                    {req.requesterBadge}
-                                  </span>
-                                  <span className="text-[10px] text-slate-400">
-                                    {new Date(req.createdAt || req.timestamp || Date.now()).toLocaleTimeString()}
-                                  </span>
-                                </div>
-                                <div className="text-[11px] text-slate-300">
-                                  Proposed: <strong className="text-cyan-300">{Object.keys(req.proposedChanges || req.proposedConfigChanges || {}).join(', ')}</strong>
-                                </div>
-                                {req.reason && (
-                                  <div className="text-[10px] text-slate-400 italic">
-                                    "{req.reason}"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdminSubTab('audit_history');
+                        loadAdminAuditLogs();
+                      }}
+                      className={`flex-1 py-1.5 px-2.5 rounded-lg flex items-center justify-center gap-1.5 transition ${
+                        adminSubTab === 'audit_history'
+                          ? 'bg-indigo-600 text-white font-bold shadow'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <History className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Admin Activity History</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setAdminSubTab('daily_report')}
+                      className={`flex-1 py-1.5 px-2.5 rounded-lg flex items-center justify-center gap-1.5 transition ${
+                        adminSubTab === 'daily_report'
+                          ? 'bg-indigo-600 text-white font-bold shadow'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <ClipboardList className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Daily Shift Report</span>
+                    </button>
+                  </div>
+
+                  {/* SUB-TAB 1: PENDING APPROVALS & PROPOSALS */}
+                  {adminSubTab === 'pending' && (
+                    <div className="space-y-4">
+                      {/* 1. Pending Parameter Change Proposals */}
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                            Pending Parameter Change Proposals ({changeRequests.filter(r => r.status === 'PENDING_ADMIN_APPROVAL').length})
+                          </span>
+                          <button
+                            onClick={loadChangeRequests}
+                            className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1"
+                          >
+                            <RefreshCw className="w-3 h-3" /> Refresh
+                          </button>
+                        </div>
+
+                        {changeRequests.filter(r => r.status === 'PENDING_ADMIN_APPROVAL').length === 0 ? (
+                          <div className="py-4 text-center border border-dashed border-slate-800 rounded-xl text-slate-400 text-xs">
+                            <p className="text-slate-300 font-medium">No Pending Parameter Proposals</p>
+                            <p className="text-slate-500 text-[10px] mt-0.5">
+                              When plant operators submit adjustments to arrival intervals, batch sizes, or failure rates, they require admin approval here.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                            {changeRequests
+                              .filter(r => r.status === 'PENDING_ADMIN_APPROVAL')
+                              .map((req) => (
+                                <div
+                                  key={req.id}
+                                  className="p-3 rounded-xl bg-slate-950 border border-amber-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                                >
+                                  <div className="space-y-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-bold text-amber-300 text-xs">{req.requesterName}</span>
+                                      <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300">
+                                        {req.requesterBadge}
+                                      </span>
+                                      <span className="text-[10px] text-slate-400">
+                                        {new Date(req.createdAt || req.timestamp || Date.now()).toLocaleTimeString()}
+                                      </span>
+                                    </div>
+                                    <div className="text-[11px] text-slate-300">
+                                      Proposed: <strong className="text-cyan-300">{Object.keys(req.proposedChanges || req.proposedConfigChanges || {}).join(', ')}</strong>
+                                    </div>
+                                    {req.reason && (
+                                      <div className="text-[10px] text-slate-400 italic">
+                                        "{req.reason}"
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                              </div>
 
-                              <div className="flex items-center gap-2 shrink-0">
-                                <button
-                                  onClick={() => handleReviewChangeRequest(req.id, true)}
-                                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition"
-                                >
-                                  <Check className="w-3.5 h-3.5" />
-                                  <span>Approve</span>
-                                </button>
-                                <button
-                                  onClick={() => handleReviewChangeRequest(req.id, false)}
-                                  className="px-2.5 py-1.5 rounded-lg bg-rose-900/60 hover:bg-rose-800 text-rose-200 text-xs flex items-center gap-1 border border-rose-700 transition"
-                                >
-                                  <XCircle className="w-3.5 h-3.5" />
-                                  <span>Reject</span>
-                                </button>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                      onClick={() => handleReviewChangeRequest(req.id, true)}
+                                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition"
+                                    >
+                                      <Check className="w-3.5 h-3.5" />
+                                      <span>Approve</span>
+                                    </button>
+                                    <button
+                                      onClick={() => handleReviewChangeRequest(req.id, false)}
+                                      className="px-2.5 py-1.5 rounded-lg bg-rose-900/60 hover:bg-rose-800 text-rose-200 text-xs flex items-center gap-1 border border-rose-700 transition"
+                                    >
+                                      <XCircle className="w-3.5 h-3.5" />
+                                      <span>Reject</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 2. Pending Operator Password Reset Applications */}
+                      <div className="space-y-2 pt-2 border-t border-slate-800">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                            <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                            Pending Password Reset Applications ({pendingPasswordResets.length})
+                          </span>
+                          <button
+                            onClick={loadPendingPasswordResets}
+                            className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1"
+                          >
+                            <RefreshCw className="w-3 h-3" /> Refresh
+                          </button>
+                        </div>
+
+                        {pendingPasswordResets.length === 0 ? (
+                          <div className="py-3 text-center border border-dashed border-slate-800 rounded-xl text-slate-400 text-xs">
+                            <p className="font-semibold text-slate-300">No Pending Password Reset Requests</p>
+                            <p className="text-slate-500 text-[10px] mt-0.5">
+                              When an operator applies for a password reset, it will appear here for admin verification and approval.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            {pendingPasswordResets.map((req) => (
+                              <div
+                                key={req.id}
+                                className="p-3 rounded-xl bg-slate-950 border border-amber-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                              >
+                                <div className="space-y-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-bold text-amber-300 text-xs">{req.userName}</span>
+                                    <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-cyan-300 border border-slate-700">
+                                      {req.userBadgeId}
+                                    </span>
+                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800">
+                                      RESET REQUESTED
+                                    </span>
+                                  </div>
+                                  <div className="text-[11px] text-slate-300">
+                                    Email: <strong className="text-white font-mono">{req.userEmail}</strong> • Org: <strong className="text-cyan-200">{req.organisationName}</strong>
+                                  </div>
+                                  <div className="text-[10px] text-slate-500">
+                                    Submitted: {new Date(req.requestedAt).toLocaleString()}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <button
+                                    onClick={() => handleReviewPasswordReset(req.id, true)}
+                                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Approve Reset</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleReviewPasswordReset(req.id, false)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-rose-900/60 hover:bg-rose-800 text-rose-200 text-xs flex items-center gap-1 border border-rose-700 transition"
+                                  >
+                                    <XCircle className="w-3.5 h-3.5" />
+                                    <span>Reject</span>
+                                  </button>
+                                </div>
                               </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 3. Pending Operator & Organisation Registrations */}
+                      <div className="space-y-2 pt-2 border-t border-slate-800">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                            <User className="w-3.5 h-3.5 text-amber-400" />
+                            Pending Operator Registrations ({pendingUsers.length})
+                          </span>
+                          <button
+                            onClick={() => loadPendingUsers(authenticatedAdmin.badgeId)}
+                            className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1"
+                          >
+                            <RefreshCw className="w-3 h-3" /> Refresh
+                          </button>
+                        </div>
+
+                        {pendingUsers.length === 0 ? (
+                          <div className="py-4 text-center border border-dashed border-slate-800 rounded-xl text-slate-400 text-xs">
+                            <p className="font-semibold text-slate-300">All Operator Registrations Are Verified</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            {pendingUsers.map((user) => (
+                              <div
+                                key={user.id}
+                                className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                              >
+                                <div className="space-y-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-bold text-white text-xs">{user.name}</span>
+                                    <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-cyan-300 border border-slate-700">
+                                      {user.badgeId}
+                                    </span>
+                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800">
+                                      PENDING APPROVAL
+                                    </span>
+                                  </div>
+                                  <div className="text-[11px] text-slate-300 flex items-center gap-1.5">
+                                    <Building2 className="w-3 h-3 text-slate-400" />
+                                    <span>Organisation: <strong>{user.organisationName}</strong></span>
+                                  </div>
+                                  <div className="text-[10px] text-slate-400">
+                                    Email: <span className="font-mono text-slate-300">{user.email}</span> • Dept: {user.department}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <button
+                                    onClick={() => handleAdminVerify(user.id, true)}
+                                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Approve</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleAdminVerify(user.id, false)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-rose-900/60 hover:bg-rose-800 text-rose-200 text-xs flex items-center gap-1 border border-rose-700 transition"
+                                  >
+                                    <XCircle className="w-3.5 h-3.5" />
+                                    <span>Reject</span>
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 3. Verified Organisation Database Tenants */}
+                      <div className="pt-2 border-t border-slate-800 space-y-1.5">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                          Currently Verified Organisation Tenants (Isolated Databases):
+                        </span>
+                        <div className="space-y-1">
+                          {verifiedOrgs.map((org) => (
+                            <div
+                              key={org.id}
+                              className="px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between text-xs"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                                <span className="font-semibold text-slate-200">{org.name}</span>
+                                <span className="font-mono text-[10px] text-slate-400">({org.code})</span>
+                              </div>
+                              <span className="text-[10px] text-emerald-400 font-mono">DATABASE ISOLATED</span>
                             </div>
                           ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 2. Pending Operator & Organisation Registrations */}
-                  <div className="space-y-2 pt-2 border-t border-slate-800">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-slate-300 flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-amber-400" />
-                        Pending Operator Registrations ({pendingUsers.length})
-                      </span>
-                      <button
-                        onClick={() => loadPendingUsers(authenticatedAdmin.badgeId)}
-                        className="text-[11px] text-cyan-400 hover:underline"
-                      >
-                        Refresh
-                      </button>
-                    </div>
-
-                    {pendingUsers.length === 0 ? (
-                      <div className="py-4 text-center border border-dashed border-slate-800 rounded-xl text-slate-400 text-xs">
-                        <p className="font-semibold text-slate-300">All Operator Registrations Are Verified</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                        {pendingUsers.map((user) => (
-                          <div
-                            key={user.id}
-                            className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                          >
-                            <div className="space-y-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-bold text-white text-xs">{user.name}</span>
-                                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-cyan-300 border border-slate-700">
-                                  {user.badgeId}
-                                </span>
-                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800">
-                                  PENDING APPROVAL
-                                </span>
-                              </div>
-                              <div className="text-[11px] text-slate-300 flex items-center gap-1.5">
-                                <Building2 className="w-3 h-3 text-slate-400" />
-                                <span>Organisation: <strong>{user.organisationName}</strong></span>
-                              </div>
-                              <div className="text-[10px] text-slate-400">
-                                Email: <span className="font-mono text-slate-300">{user.email}</span> • Dept: {user.department}
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 shrink-0">
-                              <button
-                                onClick={() => handleAdminVerify(user.id, true)}
-                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                                <span>Approve</span>
-                              </button>
-                              <button
-                                onClick={() => handleAdminVerify(user.id, false)}
-                                className="px-2.5 py-1.5 rounded-lg bg-rose-900/60 hover:bg-rose-800 text-rose-200 text-xs flex items-center gap-1 border border-rose-700 transition"
-                              >
-                                <XCircle className="w-3.5 h-3.5" />
-                                <span>Reject</span>
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 3. Verified Organisation Database Tenants */}
-                  <div className="pt-2 border-t border-slate-800 space-y-1.5">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                      Currently Verified Organisation Tenants (Isolated Databases):
-                    </span>
-                    <div className="space-y-1">
-                      {verifiedOrgs.map((org) => (
-                        <div
-                          key={org.id}
-                          className="px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between text-xs"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                            <span className="font-semibold text-slate-200">{org.name}</span>
-                            <span className="font-mono text-[10px] text-slate-400">({org.code})</span>
-                          </div>
-                          <span className="text-[10px] text-emerald-400 font-mono">DATABASE ISOLATED</span>
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* SUB-TAB 2: ADMIN ACTIVITY HISTORY (AUDIT TRAIL) */}
+                  {adminSubTab === 'audit_history' && (
+                    <div className="space-y-3 pt-1 animate-fadeIn">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-200 flex items-center gap-1.5">
+                          <History className="w-4 h-4 text-cyan-400" />
+                          Administrative Activity History & Governance Log
+                        </span>
+                        <button
+                          onClick={loadAdminAuditLogs}
+                          disabled={isLoadingLogs}
+                          className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${isLoadingLogs ? 'animate-spin' : ''}`} />
+                          Refresh
+                        </button>
+                      </div>
+
+                      {adminAuditLogs.length === 0 ? (
+                        <div className="py-6 text-center border border-dashed border-slate-800 rounded-xl text-slate-400 text-xs space-y-1">
+                          <History className="w-6 h-6 mx-auto text-slate-600 mb-1" />
+                          <p className="font-semibold text-slate-300">No Administrative Actions Logged Yet</p>
+                          <p className="text-[11px] text-slate-500">
+                            Every user verification, rejection, parameter approval, and simulation override is cryptographically logged here.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                          {adminAuditLogs.map((log) => {
+                            const isApproval = log.action === 'USER_APPROVED' || log.action === 'PROPOSAL_APPROVED';
+                            const isRejection = log.action === 'USER_REJECTED' || log.action === 'PROPOSAL_REJECTED';
+                            return (
+                              <div
+                                key={log.id}
+                                className="p-3 rounded-xl bg-slate-950 border border-slate-800/90 text-xs space-y-1.5 transition hover:border-slate-700"
+                              >
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                                        isApproval
+                                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                          : isRejection
+                                          ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                                          : 'bg-indigo-950 text-indigo-300 border border-indigo-800'
+                                      }`}
+                                    >
+                                      {log.action.replace('_', ' ')}
+                                    </span>
+                                    <span className="font-semibold text-white text-xs">{log.targetName || log.targetId}</span>
+                                    {log.targetBadge && (
+                                      <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-cyan-300">
+                                        {log.targetBadge}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] font-mono text-slate-400">{log.timestampStr}</span>
+                                </div>
+
+                                <div className="text-[11px] text-slate-300 leading-relaxed">
+                                  {log.details}
+                                </div>
+
+                                <div className="text-[10px] text-slate-500 flex items-center justify-between pt-1 border-t border-slate-900">
+                                  <span>Admin Actor: <strong className="text-slate-400">{log.adminEmail}</strong> ({log.adminBadge})</span>
+                                  <span className="font-mono text-[9px] text-slate-600">ID: {log.id}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* SUB-TAB 3: DAILY SHIFT SUMMARY REPORT */}
+                  {adminSubTab === 'daily_report' && (
+                    <div className="space-y-4 pt-1 animate-fadeIn">
+                      <div className="flex items-center justify-between text-xs border-b border-slate-800 pb-2">
+                        <div className="flex items-center gap-2">
+                          <ClipboardList className="w-4 h-4 text-emerald-400" />
+                          <div>
+                            <span className="font-bold text-slate-100 block">Plant Operational Shift Report</span>
+                            <span className="text-[10px] text-slate-400">Shift 1 • 08:00 AM – 04:00 PM (8.0 Operating Hours)</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => window.print()}
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs flex items-center gap-1.5 border border-slate-700 transition"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Print Report</span>
+                        </button>
+                      </div>
+
+                      {/* Executive KPI Grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-0.5">
+                          <span className="text-[10px] text-slate-400 block">Output Target</span>
+                          <span className="font-bold text-white text-sm font-mono">360 Units</span>
+                          <span className="text-[9px] text-cyan-400 block">120 sets / 3 trucks</span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-0.5">
+                          <span className="text-[10px] text-slate-400 block">Overall Plant OEE</span>
+                          <span className="font-bold text-emerald-400 text-sm font-mono">88.5%</span>
+                          <span className="text-[9px] text-emerald-400 block">World Class Standard</span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-0.5">
+                          <span className="text-[10px] text-slate-400 block">Backlog / Arrears</span>
+                          <span className="font-bold text-slate-200 text-sm font-mono">0 Units</span>
+                          <span className="text-[9px] text-slate-500 block">Zero delivery backlog</span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-0.5">
+                          <span className="text-[10px] text-slate-400 block">First Pass Yield</span>
+                          <span className="font-bold text-cyan-400 text-sm font-mono">98.2%</span>
+                          <span className="text-[9px] text-slate-400 block">QC Stage 1, 2, 3</span>
+                        </div>
+                      </div>
+
+                      {/* Equipment and Subsystems Operational Readiness */}
+                      <div className="space-y-1.5 text-xs">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Subsystem Status & Tool Life Monitoring:
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                          <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                            <div>
+                              <span className="font-semibold text-slate-200 block">CNC Lathe (RM1 Billet)</span>
+                              <span className="text-[10px] text-slate-400">Cycle: 360s • ISO 3685 Flank Wear: 0.12mm</span>
+                            </div>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 font-mono">HEALTHY</span>
+                          </div>
+                          <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                            <div>
+                              <span className="font-semibold text-slate-200 block">CNC Milling (RM2 Casting)</span>
+                              <span className="text-[10px] text-slate-400">Cycle: 240s • ISO 3685 Flank Wear: 0.08mm</span>
+                            </div>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 font-mono">HEALTHY</span>
+                          </div>
+                          <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                            <div>
+                              <span className="font-semibold text-slate-200 block">Gear Shaping (RM3 Plate)</span>
+                              <span className="text-[10px] text-slate-400">Cycle: 210s • ISO 3685 Flank Wear: 0.06mm</span>
+                            </div>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 font-mono">HEALTHY</span>
+                          </div>
+                          <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                            <div>
+                              <span className="font-semibold text-slate-200 block">QC Subsystem & Inspection</span>
+                              <span className="text-[10px] text-slate-400">Check I → Check II → Rework → Check III</span>
+                            </div>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 font-mono">INSPECTING</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Energy & Carbon Sustainability Summary */}
+                      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1">
+                        <div className="flex items-center justify-between font-semibold text-slate-200">
+                          <span className="flex items-center gap-1.5">
+                            <Zap className="w-3.5 h-3.5 text-amber-400" />
+                            Industrial Energy & Tariffs (Indian Standards)
+                          </span>
+                          <span className="font-mono text-cyan-300 text-xs font-bold">₹2,283.20 Est. Shift Cost</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400">
+                          Total Energy Consumption: <strong className="text-white">285.4 kWh</strong> • Specific Energy: <strong className="text-white">0.79 kWh/unit</strong> • Power Factor: <strong className="text-white">0.96 (Optimal)</strong>
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1208,12 +1698,12 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
           <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4 text-left">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-cyan-950 border border-cyan-800 text-cyan-400">
+                <div className="p-2 rounded-lg bg-amber-950/60 border border-amber-800/80 text-amber-400">
                   <KeyRound className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Reset Operator Password</h3>
-                  <p className="text-[10px] text-slate-400">Update passcode for your Badge ID or Email</p>
+                  <h3 className="text-sm font-bold text-white">Apply for Password Reset</h3>
+                  <p className="text-[10px] text-slate-400">Requires Chief Engineer / Admin approval before activation</p>
                 </div>
               </div>
               <button
@@ -1239,6 +1729,10 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
               </div>
             )}
 
+            <div className="p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-800/50 text-[11px] text-indigo-200">
+              <span className="font-semibold text-amber-300">Administrative Policy:</span> To prevent unauthorized access, password change requests are held in a pending state until verified and approved by a designated administrator.
+            </div>
+
             <form onSubmit={handleForgotPasswordSubmit} className="space-y-3 text-xs">
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-slate-300">Operator Badge ID or Email *</label>
@@ -1246,14 +1740,14 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
                   type="text"
                   value={forgotInput.identifier}
                   onChange={(e) => setForgotInput({ ...forgotInput, identifier: e.target.value })}
-                  placeholder="e.g. ME-OPR-4412 or operator@iiests.ac.in"
+                  placeholder="e.g. ME-OPR-4412, Rajesh Sharma, or operator@iiests.ac.in"
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500"
                   required
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-300">New Password (min 6 characters) *</label>
+                <label className="text-[11px] font-semibold text-slate-300">Proposed New Password (min 6 characters) *</label>
                 <input
                   type="password"
                   value={forgotInput.newPassword}
@@ -1265,7 +1759,7 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-300">Confirm New Password *</label>
+                <label className="text-[11px] font-semibold text-slate-300">Confirm Proposed Password *</label>
                 <input
                   type="password"
                   value={forgotInput.confirmNewPassword}
@@ -1287,10 +1781,10 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
                 <button
                   type="submit"
                   disabled={isResetting}
-                  className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow"
+                  className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow"
                 >
                   <KeyRound className="w-3.5 h-3.5" />
-                  <span>{isResetting ? 'Updating...' : 'Set New Password'}</span>
+                  <span>{isResetting ? 'Submitting Application...' : 'Submit Application for Admin Approval'}</span>
                 </button>
               </div>
             </form>

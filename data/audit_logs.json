@@ -1,0 +1,16 @@
+[
+  {
+    "id": "log-mwaj6jf3-e2n4",
+    "action": "PASSWORD_RESET_APPROVED",
+    "adminEmail": "sayandipmallickclassf@gmail.com",
+    "adminBadge": "CHIEF-ENG-01",
+    "adminName": "sayandipmallickclassf@gmail.com",
+    "targetId": "usr-opr-101",
+    "targetName": "Rajesh Sharma",
+    "targetBadge": "ME-OPR-4412",
+    "details": "Password reset authorized for Rajesh Sharma (ME-OPR-4412) by sayandipmallickclassf@gmail.com. New credentials committed to database.",
+    "timestamp": 1794305524431,
+    "timestampIso": "2026-11-10T10:12:04.431Z",
+    "timestampStr": "11/10/2026, 10:12:04 AM"
+  }
+]

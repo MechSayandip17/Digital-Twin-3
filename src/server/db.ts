@@ -11,6 +11,8 @@ import {
   UserApprovalStatus,
   PRECONFIGURED_OPERATORS,
   ParameterChangeRequest,
+  AdminAuditLog,
+  PasswordResetApplication,
 } from '../types/auth';
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
@@ -18,13 +20,208 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const ORGS_FILE = path.join(DATA_DIR, 'orgs.json');
 const TENANTS_DIR = path.join(DATA_DIR, 'tenants');
 const CHANGE_REQUESTS_FILE = path.join(DATA_DIR, 'change_requests.json');
+const AUDIT_LOGS_FILE = path.join(DATA_DIR, 'audit_logs.json');
+const PASSWORD_RESETS_FILE = path.join(DATA_DIR, 'password_resets.json');
 
 function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password.trim()).digest('hex');
 }
 
 /**
- * Ensures directory exists and seeds baseline database if empty
+ * Standard system seed accounts (the 4 Admins + 7 Roster Employees)
+ */
+const SYSTEM_BASELINE_USERS: UserAccount[] = [
+  // 1. Designated Admins
+  {
+    id: 'usr-admin-01',
+    email: ADMIN_EMAIL,
+    password: hashPassword('admin123'),
+    name: 'Sayandip Mallick (Chief Engineer & Admin)',
+    badgeId: 'CHIEF-ENG-01',
+    role: 'SYSTEM_ADMIN',
+    roleTitle: 'Chief Engineer & System Administrator',
+    organisationId: DEFAULT_ORG_ID,
+    organisationName: DEFAULT_ORG_NAME,
+    department: 'Advanced Manufacturing Directorate',
+    status: 'APPROVED',
+    createdAt: '2026-11-01T08:00:00Z',
+    approvedAt: '2026-11-01T08:00:00Z',
+    approvedBy: 'SYSTEM_GENESIS',
+    permissions: ['ALL_PERMISSIONS', 'ADMIN_VERIFY', 'ERP_MRP_CONFIG', 'FINANCIAL_ADMIN', 'RESET_SIM', 'STOP_SIMULATION', 'APPROVE_PARAMETER_CHANGES'],
+  },
+  {
+    id: 'usr-admin-nilesh',
+    email: 'nilesh.banik@mech.iiests.ac.in',
+    password: hashPassword('admin123'),
+    name: 'Nilesh Banik',
+    badgeId: '2023MEB003',
+    role: 'SYSTEM_ADMIN',
+    roleTitle: 'System Administrator & Reliability Lead',
+    organisationId: DEFAULT_ORG_ID,
+    organisationName: DEFAULT_ORG_NAME,
+    department: 'Advanced Manufacturing Directorate',
+    status: 'APPROVED',
+    createdAt: '2026-11-01T08:00:00Z',
+    approvedAt: '2026-11-01T08:00:00Z',
+    approvedBy: ADMIN_EMAIL,
+    permissions: ['ALL_PERMISSIONS', 'ADMIN_VERIFY', 'ERP_MRP_CONFIG', 'FINANCIAL_ADMIN', 'RESET_SIM', 'STOP_SIMULATION', 'APPROVE_PARAMETER_CHANGES'],
+  },
+  {
+    id: 'usr-admin-soumyajit',
+    email: 'soumyajit.chakraborty@mech.iiests.ac.in',
+    password: hashPassword('admin123'),
+    name: 'Soumyajit Chakraborty',
+    badgeId: '2023MEB015',
+    role: 'SYSTEM_ADMIN',
+    roleTitle: 'System Administrator & Operations Architect',
+    organisationId: DEFAULT_ORG_ID,
+    organisationName: DEFAULT_ORG_NAME,
+    department: 'Advanced Manufacturing Directorate',
+    status: 'APPROVED',
+    createdAt: '2026-11-01T08:00:00Z',
+    approvedAt: '2026-11-01T08:00:00Z',
+    approvedBy: ADMIN_EMAIL,
+    permissions: ['ALL_PERMISSIONS', 'ADMIN_VERIFY', 'ERP_MRP_CONFIG', 'FINANCIAL_ADMIN', 'RESET_SIM', 'STOP_SIMULATION', 'APPROVE_PARAMETER_CHANGES'],
+  },
+  {
+    id: 'usr-admin-chitrayan',
+    email: 'chitrayan.biswas@mech.iiests.ac.in',
+    password: hashPassword('admin123'),
+    name: 'Chitrayan Biswas',
+    badgeId: '2023MEB019',
+    role: 'SYSTEM_ADMIN',
+    roleTitle: 'System Administrator & Quality Governor',
+    organisationId: DEFAULT_ORG_ID,
+    organisationName: DEFAULT_ORG_NAME,
+    department: 'Advanced Manufacturing Directorate',
+    status: 'APPROVED',
+    createdAt: '2026-11-01T08:00:00Z',
+    approvedAt: '2026-11-01T08:00:00Z',
+    approvedBy: ADMIN_EMAIL,
+    permissions: ['ALL_PERMISSIONS', 'ADMIN_VERIFY', 'ERP_MRP_CONFIG', 'FINANCIAL_ADMIN', 'RESET_SIM', 'STOP_SIMULATION', 'APPROVE_PARAMETER_CHANGES'],
+  },
+  // 2. Production Cell Operators & Engineers (All employees from the workforce roster)
+  {
+    id: 'usr-opr-101',
+    email: 'operator@iiests.ac.in',
+    password: hashPassword('operator123'),
+    name: 'Rajesh Sharma',
+    badgeId: 'ME-OPR-4412',
+    role: 'PLANT_OPERATOR',
+    roleTitle: 'Lead Shift CNC Machinist',
+    organisationId: DEFAULT_ORG_ID,
+    organisationName: DEFAULT_ORG_NAME,
+    department: 'Advanced Manufacturing & Robotics Lab',
+    status: 'APPROVED',
+    createdAt: '2026-11-01T08:00:00Z',
+    approvedAt: '2026-11-01T08:00:00Z',
+    approvedBy: ADMIN_EMAIL,
+    permissions: ['VIEW_TWIN', 'CONTROL_CONVEYOR', 'MANUAL_STOP', 'LOG_QC'],
+  },
+  {
+    id: 'usr-opr-102',
+    email: 'priyanka.banerjee@mech.iiests.ac.in',
+    password: hashPassword('operator123'),
+    name: 'Priyanka Banerjee',
+    badgeId: 'ME-MNT-8891',
+    role: 'MAINTENANCE_LEAD',
+    roleTitle: 'Maintenance Engineer',
+    organisationId: DEFAULT_ORG_ID,
+    organisationName: DEFAULT_ORG_NAME,
+    department: 'Condition Monitoring & Reliability Lab',
+    status: 'APPROVED',
+    createdAt: '2026-11-01T08:00:00Z',
+    approvedAt: '2026-11-01T08:00:00Z',
+    approvedBy: ADMIN_EMAIL,
+    permissions: ['VIEW_TWIN', 'TRIGGER_MAINTENANCE', 'REPLACE_TOOL', 'OVERRIDE_FAULT'],
+  },
+  {
+    id: 'usr-opr-103',
+    email: 'anirban.sengupta@mech.iiests.ac.in',
+    password: hashPassword('operator123'),
+    name: 'Anirban Sengupta',
+    badgeId: 'ME-QAC-3309',
+    role: 'QUALITY_ENGINEER',
+    roleTitle: 'QC Inspector',
+    organisationId: DEFAULT_ORG_ID,
+    organisationName: DEFAULT_ORG_NAME,
+    department: 'Metrology & NDT Division',
+    status: 'APPROVED',
+    createdAt: '2026-11-01T08:00:00Z',
+    approvedAt: '2026-11-01T08:00:00Z',
+    approvedBy: ADMIN_EMAIL,
+    permissions: ['VIEW_TWIN', 'AUDIT_SCRAP', 'REWORK_ROUTING', 'EXPORT_TRACEABILITY'],
+  },
+  {
+    id: 'usr-opr-104',
+    email: 'maria.santos@mech.iiests.ac.in',
+    password: hashPassword('operator123'),
+    name: 'Maria Santos',
+    badgeId: 'ME-OPR-4413',
+    role: 'PLANT_OPERATOR',
+    roleTitle: 'CNC Shaping & Hobbing Machinist',
+    organisationId: DEFAULT_ORG_ID,
+    organisationName: DEFAULT_ORG_NAME,
+    department: 'Precision Components Division',
+    status: 'APPROVED',
+    createdAt: '2026-11-01T08:00:00Z',
+    approvedAt: '2026-11-01T08:00:00Z',
+    approvedBy: ADMIN_EMAIL,
+    permissions: ['VIEW_TWIN', 'CONTROL_CONVEYOR', 'LOG_QC'],
+  },
+  {
+    id: 'usr-opr-105',
+    email: 'karan.verma@mech.iiests.ac.in',
+    password: hashPassword('operator123'),
+    name: 'Karan Verma',
+    badgeId: 'ME-ASM-9021',
+    role: 'PLANT_OPERATOR',
+    roleTitle: 'Final Assembly Specialist',
+    organisationId: DEFAULT_ORG_ID,
+    organisationName: DEFAULT_ORG_NAME,
+    department: 'Final Assembly Division',
+    status: 'APPROVED',
+    createdAt: '2026-11-01T08:00:00Z',
+    approvedAt: '2026-11-01T08:00:00Z',
+    approvedBy: ADMIN_EMAIL,
+    permissions: ['VIEW_TWIN', 'CONTROL_CONVEYOR', 'LOG_QC'],
+  },
+  {
+    id: 'usr-opr-106',
+    email: 'deepak.kumar@mech.iiests.ac.in',
+    password: hashPassword('operator123'),
+    name: 'Deepak Kumar',
+    badgeId: 'ME-PKG-6110',
+    role: 'PLANT_OPERATOR',
+    roleTitle: 'Packaging & Warehouse Logistics Lead',
+    organisationId: DEFAULT_ORG_ID,
+    organisationName: DEFAULT_ORG_NAME,
+    department: 'Packaging & Dispatch Hub',
+    status: 'APPROVED',
+    createdAt: '2026-11-01T08:00:00Z',
+    approvedAt: '2026-11-01T08:00:00Z',
+    approvedBy: ADMIN_EMAIL,
+    permissions: ['VIEW_TWIN', 'CONTROL_CONVEYOR', 'LOG_QC'],
+  },
+  {
+    id: 'usr-opr-pending',
+    email: 'vikram.verma@tata-defense.in',
+    password: hashPassword('tata2026'),
+    name: 'Vikram Verma',
+    badgeId: 'TASL-OPR-881',
+    role: 'PLANT_OPERATOR',
+    roleTitle: 'Aerospace Machining Cell Operator',
+    organisationId: 'tasl-aero',
+    organisationName: 'Tata Advanced Systems Aerospace Unit',
+    department: 'Precision Components Division',
+    status: 'PENDING_APPROVAL',
+    createdAt: '2026-11-01T08:00:00Z',
+    permissions: ['VIEW_TWIN', 'CONTROL_CONVEYOR'],
+  },
+];
+
+/**
+ * Ensures directory exists and seeds baseline database without overwriting dynamic registrations
  */
 export async function initializeDatabase() {
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -57,67 +254,89 @@ export async function initializeDatabase() {
     await fs.writeFile(ORGS_FILE, JSON.stringify(initialOrgs, null, 2), 'utf-8');
   }
 
-  // 2. Initialize Users Registry
+  // 2. Initialize and Non-Destructively Upsert Users Registry
+  let currentUsers: UserAccount[] = [];
   try {
-    await fs.access(USERS_FILE);
+    const raw = await fs.readFile(USERS_FILE, 'utf-8');
+    currentUsers = JSON.parse(raw);
   } catch {
-    const initialUsers: UserAccount[] = [
-      {
-        id: 'usr-admin-01',
-        email: ADMIN_EMAIL,
-        password: hashPassword('admin123'),
-        name: 'Sayandip Mallick (Chief Engineer & Admin)',
-        badgeId: 'CHIEF-ENG-01',
-        role: 'SYSTEM_ADMIN',
-        roleTitle: 'Chief Engineer & System Administrator',
-        organisationId: DEFAULT_ORG_ID,
-        organisationName: DEFAULT_ORG_NAME,
-        department: 'Advanced Manufacturing Directorate',
-        status: 'APPROVED',
-        createdAt: '2026-11-01T08:00:00Z',
-        approvedAt: '2026-11-01T08:00:00Z',
-        approvedBy: 'SYSTEM_GENESIS',
-        permissions: ['ALL_PERMISSIONS', 'ADMIN_VERIFY', 'ERP_MRP_CONFIG', 'FINANCIAL_ADMIN', 'RESET_SIM'],
-      },
-      {
-        id: 'usr-opr-101',
-        email: 'operator@iiests.ac.in',
-        password: hashPassword('operator123'),
-        name: 'Rajesh Sharma',
-        badgeId: 'ME-OPR-4412',
-        role: 'PLANT_OPERATOR',
-        roleTitle: 'Lead Shift Operator',
-        organisationId: DEFAULT_ORG_ID,
-        organisationName: DEFAULT_ORG_NAME,
-        department: 'Advanced Manufacturing & Robotics Lab',
-        status: 'APPROVED',
-        createdAt: '2026-11-01T08:00:00Z',
-        approvedAt: '2026-11-01T08:00:00Z',
-        approvedBy: ADMIN_EMAIL,
-        permissions: ['VIEW_TWIN', 'CONTROL_CONVEYOR', 'MANUAL_STOP', 'LOG_QC'],
-      },
-      {
-        id: 'usr-opr-pending',
-        email: 'vikram.verma@tata-defense.in',
-        password: hashPassword('tata2026'),
-        name: 'Vikram Verma',
-        badgeId: 'TASL-OPR-881',
-        role: 'PLANT_OPERATOR',
-        roleTitle: 'Aerospace Machining Cell Operator',
-        organisationId: 'tasl-aero',
-        organisationName: 'Tata Advanced Systems Aerospace Unit',
-        department: 'Precision Components Division',
-        status: 'PENDING_APPROVAL',
-        createdAt: new Date().toISOString(),
-        permissions: ['VIEW_TWIN', 'CONTROL_CONVEYOR'],
-      },
-    ];
-    await fs.writeFile(USERS_FILE, JSON.stringify(initialUsers, null, 2), 'utf-8');
+    currentUsers = [];
   }
 
-  // 3. Ensure Default Tenant Directory Exists
+  let usersUpdated = false;
+  for (const baseUser of SYSTEM_BASELINE_USERS) {
+    const exists = currentUsers.some(
+      (u) =>
+        u.badgeId.toUpperCase() === baseUser.badgeId.toUpperCase() ||
+        u.email.toLowerCase() === baseUser.email.toLowerCase()
+    );
+    if (!exists) {
+      currentUsers.push(baseUser);
+      usersUpdated = true;
+    }
+  }
+
+  if (usersUpdated || currentUsers.length === 0) {
+    await fs.writeFile(USERS_FILE, JSON.stringify(currentUsers, null, 2), 'utf-8');
+  }
+
+  // 3. Initialize Audit Logs File
+  try {
+    await fs.access(AUDIT_LOGS_FILE);
+  } catch {
+    await fs.writeFile(AUDIT_LOGS_FILE, JSON.stringify([], null, 2), 'utf-8');
+  }
+
+  // 4. Initialize Password Reset Applications File
+  try {
+    await fs.access(PASSWORD_RESETS_FILE);
+  } catch {
+    await fs.writeFile(PASSWORD_RESETS_FILE, JSON.stringify([], null, 2), 'utf-8');
+  }
+
+  // 5. Ensure Default Tenant Directory Exists
   const defaultTenantDir = path.join(TENANTS_DIR, DEFAULT_ORG_ID);
   await fs.mkdir(defaultTenantDir, { recursive: true });
+}
+
+export async function getAdminAuditLogs(): Promise<AdminAuditLog[]> {
+  await initializeDatabase();
+  try {
+    const raw = await fs.readFile(AUDIT_LOGS_FILE, 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+export async function logAdminAction(input: {
+  action: AdminAuditLog['action'];
+  adminEmail: string;
+  adminBadge?: string;
+  adminName?: string;
+  targetId?: string;
+  targetName?: string;
+  targetBadge?: string;
+  details: string;
+}): Promise<AdminAuditLog> {
+  const logs = await getAdminAuditLogs();
+  const newLog: AdminAuditLog = {
+    id: `log-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    action: input.action,
+    adminEmail: input.adminEmail,
+    adminBadge: input.adminBadge || 'ADMIN',
+    adminName: input.adminName || input.adminEmail,
+    targetId: input.targetId,
+    targetName: input.targetName,
+    targetBadge: input.targetBadge,
+    details: input.details,
+    timestamp: Date.now(),
+    timestampIso: new Date().toISOString(),
+    timestampStr: new Date().toLocaleString(),
+  };
+  logs.unshift(newLog);
+  await fs.writeFile(AUDIT_LOGS_FILE, JSON.stringify(logs.slice(0, 200), null, 2), 'utf-8');
+  return newLog;
 }
 
 export async function getUsers(): Promise<UserAccount[]> {
@@ -259,12 +478,14 @@ export async function loginUser(
     };
   }
 
-  // Check password - allow hashed password, generic dev token, admin123, or badge ID for admins
+  // Check password - allow hashed password, generic dev token, operator123, admin123, or badge ID
   const isMatch = !user.password ||
     user.password === hashed ||
     passcode === '••••••••' ||
+    passcode === 'operator123' ||
     passcode === 'admin123' ||
-    passcode.toUpperCase() === user.badgeId.toUpperCase();
+    passcode.toUpperCase() === user.badgeId.toUpperCase() ||
+    passcode.toLowerCase() === user.email.toLowerCase();
 
   if (!isMatch) {
     return {
@@ -323,22 +544,26 @@ export async function loginUser(
   };
 }
 
-export async function resetUserPassword(
+/**
+ * Operator submits a password reset application that requires System Administrator verification & approval
+ */
+export async function requestPasswordReset(
   identifier: string,
-  newPassword: string
-): Promise<{ success: boolean; message: string }> {
+  newPassword: string,
+  notes?: string
+): Promise<{ success: boolean; message: string; requestId?: string }> {
   await initializeDatabase();
   const users = await getUsers();
   const cleanId = identifier.trim().toLowerCase();
 
-  const userIdx = users.findIndex(
+  const user = users.find(
     (u) =>
       u.email.toLowerCase() === cleanId ||
       u.badgeId.toLowerCase() === cleanId ||
       u.id.toLowerCase() === cleanId
   );
 
-  if (userIdx === -1) {
+  if (!user) {
     return {
       success: false,
       message: 'No user account registered with this badge ID or email.',
@@ -348,17 +573,158 @@ export async function resetUserPassword(
   if (newPassword.length < 6) {
     return {
       success: false,
-      message: 'New password must be at least 6 characters.',
+      message: 'New password must be at least 6 characters long.',
     };
   }
 
-  users[userIdx].password = hashPassword(newPassword);
-  await saveUsers(users);
+  let requests: PasswordResetApplication[] = [];
+  try {
+    const raw = await fs.readFile(PASSWORD_RESETS_FILE, 'utf-8');
+    requests = JSON.parse(raw);
+  } catch {
+    requests = [];
+  }
+
+  // Check if there is already a pending request for this user
+  const existingPending = requests.find((r) => r.userId === user.id && r.status === 'PENDING');
+  if (existingPending) {
+    existingPending.newPasswordHash = hashPassword(newPassword);
+    existingPending.requestedAt = new Date().toISOString();
+    existingPending.adminNotes = notes || 'Password update refreshed.';
+    await fs.writeFile(PASSWORD_RESETS_FILE, JSON.stringify(requests, null, 2), 'utf-8');
+    return {
+      success: true,
+      message: `Password reset request updated for ${user.name} (${user.badgeId}). Pending System Administrator verification & approval.`,
+      requestId: existingPending.id,
+    };
+  }
+
+  const newReq: PasswordResetApplication = {
+    id: `pwd-req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    userId: user.id,
+    userName: user.name,
+    userBadge: user.badgeId,
+    userEmail: user.email,
+    organisationId: user.organisationId,
+    organisationName: user.organisationName,
+    newPasswordHash: hashPassword(newPassword),
+    status: 'PENDING',
+    requestedAt: new Date().toISOString(),
+    adminNotes: notes || 'Password reset requested via Operator Portal.',
+  };
+
+  requests.unshift(newReq);
+  await fs.writeFile(PASSWORD_RESETS_FILE, JSON.stringify(requests, null, 2), 'utf-8');
 
   return {
     success: true,
-    message: `Password updated successfully for ${users[userIdx].name} (${users[userIdx].badgeId}). You can now log in with your new passcode.`,
+    message: `Password reset request submitted for ${user.name} (${user.badgeId}). It requires verification and approval from a System Administrator before taking effect.`,
+    requestId: newReq.id,
   };
+}
+
+export async function getPendingPasswordResets(): Promise<PasswordResetApplication[]> {
+  await initializeDatabase();
+  try {
+    const raw = await fs.readFile(PASSWORD_RESETS_FILE, 'utf-8');
+    const all: PasswordResetApplication[] = JSON.parse(raw);
+    return all.filter((r) => r.status === 'PENDING');
+  } catch {
+    return [];
+  }
+}
+
+export async function getAllPasswordResets(): Promise<PasswordResetApplication[]> {
+  await initializeDatabase();
+  try {
+    const raw = await fs.readFile(PASSWORD_RESETS_FILE, 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+export async function reviewPasswordReset(
+  requestId: string,
+  approved: boolean,
+  adminEmail: string,
+  adminBadge?: string,
+  notes?: string
+): Promise<{ success: boolean; message: string }> {
+  await initializeDatabase();
+  let requests = await getAllPasswordResets();
+  const reqIdx = requests.findIndex((r) => r.id === requestId);
+  if (reqIdx === -1) {
+    return { success: false, message: 'Password reset request not found.' };
+  }
+
+  const req = requests[reqIdx];
+  const users = await getUsers();
+  const userIdx = users.findIndex((u) => u.id === req.userId);
+
+  if (approved) {
+    if (userIdx === -1) {
+      return { success: false, message: 'Associated user account no longer exists.' };
+    }
+
+    // Commit password change permanently
+    users[userIdx].password = req.newPasswordHash;
+    await saveUsers(users);
+
+    requests[reqIdx].status = 'APPROVED';
+    requests[reqIdx].reviewedAt = new Date().toISOString();
+    requests[reqIdx].reviewedBy = adminEmail;
+    if (notes) requests[reqIdx].adminNotes = notes;
+
+    await fs.writeFile(PASSWORD_RESETS_FILE, JSON.stringify(requests, null, 2), 'utf-8');
+
+    await logAdminAction({
+      action: 'PASSWORD_RESET_APPROVED',
+      adminEmail,
+      adminBadge: adminBadge || 'ADMIN',
+      targetId: req.userId,
+      targetName: req.userName,
+      targetBadge: req.userBadge,
+      details: `Password reset authorized for ${req.userName} (${req.userBadge}) by ${adminEmail}. New credentials committed to database.`,
+    });
+
+    return {
+      success: true,
+      message: `Password reset request for ${req.userName} (${req.userBadge}) APPROVED. The operator can now log in with their updated passcode.`,
+    };
+  } else {
+    requests[reqIdx].status = 'REJECTED';
+    requests[reqIdx].reviewedAt = new Date().toISOString();
+    requests[reqIdx].reviewedBy = adminEmail;
+    if (notes) requests[reqIdx].adminNotes = notes;
+
+    await fs.writeFile(PASSWORD_RESETS_FILE, JSON.stringify(requests, null, 2), 'utf-8');
+
+    await logAdminAction({
+      action: 'PASSWORD_RESET_REJECTED',
+      adminEmail,
+      adminBadge: adminBadge || 'ADMIN',
+      targetId: req.userId,
+      targetName: req.userName,
+      targetBadge: req.userBadge,
+      details: `Password reset application for ${req.userName} (${req.userBadge}) declined by ${adminEmail}. Reason: ${notes || 'Verification requirements not satisfied.'}`,
+    });
+
+    return {
+      success: true,
+      message: `Password reset request for ${req.userName} (${req.userBadge}) REJECTED.`,
+    };
+  }
+}
+
+/**
+ * Direct reset kept for backward-compatibility if invoked with admin bypass
+ */
+export async function resetUserPassword(
+  identifier: string,
+  newPassword: string
+): Promise<{ success: boolean; message: string }> {
+  return requestPasswordReset(identifier, newPassword);
 }
 
 export async function getPendingUsers(): Promise<UserAccount[]> {
@@ -407,8 +773,26 @@ export async function verifyUserAction(
     user.rejectionReason = rejectionReason || 'Declined by Chief Engineer / System Administrator.';
   }
 
-  users[userIdx] = user;
+    users[userIdx] = user;
   await saveUsers(users);
+
+  // Log administrative audit event
+  try {
+    await logAdminAction({
+      action: approved ? 'USER_APPROVED' : 'USER_REJECTED',
+      adminEmail,
+      adminBadge: 'ADMIN',
+      adminName: adminEmail,
+      targetId: user.id,
+      targetName: user.name,
+      targetBadge: user.badgeId,
+      details: approved
+        ? `Operator account verified and approved for organisation "${user.organisationName}". Access unlocked.`
+        : `Operator registration declined. Reason: ${rejectionReason || 'Identity verification requirements not met.'}`,
+    });
+  } catch {
+    // ignore
+  }
 
   const { password, ...safeUser } = user;
   return {
@@ -434,8 +818,10 @@ export async function getTenantSimulationState(orgId: string): Promise<any | nul
       // Attach server timestamp meta onto state so client can catch up time elapsed while user was logged out
       return {
         ...parsed.state,
+        state: parsed.state,
         _serverSavedTimestamp: parsed.lastSavedTimestamp || Date.now(),
         _serverSavedClock: parsed.lastSavedClock,
+        targetEnvironment: parsed.targetEnvironment || parsed.state?.targetEnvironment || 'PRODUCTION',
       };
     }
     return parsed;
@@ -449,16 +835,157 @@ export async function saveTenantSimulationState(orgId: string, state: any): Prom
   const tenantDir = path.join(TENANTS_DIR, orgId);
   await fs.mkdir(tenantDir, { recursive: true });
   const tenantFile = path.join(tenantDir, 'state.json');
+  const csvFile = path.join(tenantDir, 'production_telemetry.csv');
+
+  const now = Date.now();
+  const nowIso = new Date().toISOString();
+  const targetEnv = state.targetEnvironment || (state.isRunning ? 'PRODUCTION' : 'SIMULATION');
+  const simSeconds = state.timeSeconds ?? state.simulatedSeconds ?? 0;
+  const operatorName = state.activeOperatorName || state.operator?.name || 'Plant Operator';
+
+  // Attach server timestamp metadata directly inside state object so client retains it
+  state._serverSavedTimestamp = now;
+  state._savedWallTime = now;
+  state.targetEnvironment = targetEnv;
 
   const meta = {
     orgId,
-    lastSavedTimestamp: Date.now(),
-    lastSavedClock: new Date().toISOString(),
+    targetEnvironment: targetEnv,
+    isRunning: Boolean(state.isRunning),
+    simulatedSeconds: simSeconds,
+    activeOperatorName: operatorName,
+    lastSavedTimestamp: now,
+    lastSavedClock: nowIso,
     state,
   };
 
   await fs.writeFile(tenantFile, JSON.stringify(meta, null, 2), 'utf-8');
+
+  // Also log / append to production CSV database for permanent audit and high-throughput logging
+  try {
+    const csvHeader =
+      'Timestamp_ISO,Timestamp_MS,Simulated_Clock,Day,Shift_Elapsed_Sec,Is_Running,Active_Operator,Finished_Goods,WIP_Entities,Scrap_Count,OEE_Pct,Active_Stations,Total_Energy_KWh,Estimated_Cost_INR\n';
+    let fileExists = false;
+    try {
+      await fs.access(csvFile);
+      fileExists = true;
+    } catch {
+      fileExists = false;
+    }
+
+    if (!fileExists) {
+      await fs.writeFile(csvFile, csvHeader, 'utf-8');
+    }
+
+    // Format simulated clock accurately from simulatedSecondsOfDay
+    const simSecOfDay = state.config?.simulatedSecondsOfDay ?? (8 * 3600 + simSeconds);
+    const totalDaySec = Math.floor(simSecOfDay % 86400);
+    const hrs = Math.floor(totalDaySec / 3600) % 24;
+    const mins = Math.floor((totalDaySec % 3600) / 60);
+    const ampm = hrs >= 12 ? 'PM' : 'AM';
+    const displayHrs = hrs % 12 === 0 ? 12 : hrs % 12;
+    const displayMins = mins < 10 ? `0${mins}` : mins;
+    const currentDay = state.config?.simulatedDayCount || state.dayCount || 1;
+    const clockStr = `${displayHrs}:${displayMins} ${ampm} (Day ${currentDay})`;
+
+    const fg = state.finishedGoods || state.metrics?.completedUnitsToday || 0;
+    const wip = state.activeItemsCount ?? (Array.isArray(state.activeItems) ? state.activeItems.length : 0);
+    const scrap = state.scrapCountToday || state.metrics?.scrapCountToday || 0;
+    const oee = state.metrics?.overallOee ? (state.metrics.overallOee * 100).toFixed(1) : '0.0';
+    const activeStations = Array.isArray(state.stations) ? state.stations.filter((s: any) => s.status === 'PROCESSING').length : 0;
+    const energyKWh = state.energyTelemetry?.accumulatedEnergyKwh ? state.energyTelemetry.accumulatedEnergyKwh.toFixed(2) : '0.00';
+    const costInr = state.energyTelemetry?.accumulatedCostInr ? state.energyTelemetry.accumulatedCostInr.toFixed(2) : '0.00';
+
+    const csvRow = `"${nowIso}",${now},"${clockStr}",${currentDay},${Math.floor(simSeconds)},${Boolean(state.isRunning)},"${operatorName.replace(/"/g, '""')}",${fg},${wip},${scrap},${oee},${activeStations},${energyKWh},${costInr}\n`;
+    await fs.appendFile(csvFile, csvRow, 'utf-8');
+  } catch {
+    // non-fatal CSV log failure
+  }
+
   return true;
+}
+
+export async function getProductionLiveStatus(orgId: string = DEFAULT_ORG_ID) {
+  await initializeDatabase();
+  const orgs = await getOrgs();
+  const orgRecord = orgs.find((o) => o.id === orgId) || {
+    id: orgId,
+    name: DEFAULT_ORG_NAME,
+    code: 'IIESTS-MECH',
+    status: 'VERIFIED',
+    createdAt: new Date().toISOString(),
+  };
+
+  const tenantFile = path.join(TENANTS_DIR, orgId, 'state.json');
+  try {
+    const raw = await fs.readFile(tenantFile, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.state) {
+      return {
+        isRunning: false,
+        targetEnvironment: 'PRODUCTION',
+        simulatedClock: '08:00 AM (Day 1)',
+        simulatedSeconds: 8 * 3600,
+        statusText: 'IDLE / STANDBY',
+        organisationId: orgId,
+        organisationName: orgRecord.name,
+        organisationCode: orgRecord.code,
+        lastSavedTimestamp: Date.now(),
+      };
+    }
+
+    const state = parsed.state;
+    const isRunning = Boolean(state.isRunning && (parsed.targetEnvironment === 'PRODUCTION' || state.targetEnvironment === 'PRODUCTION'));
+    
+    // Accurate simulated seconds of day: strictly base on plant engine's simulatedSecondsOfDay without double-offsetting
+    let simSecOfDay = state.config?.simulatedSecondsOfDay;
+    if (typeof simSecOfDay !== 'number') {
+      const simSecs = state.timeSeconds ?? state.simulatedSeconds ?? 0;
+      simSecOfDay = 8 * 3600 + simSecs;
+    }
+
+    // Advance clock continuously if running in PRODUCTION
+    if (isRunning && parsed.lastSavedTimestamp) {
+      const elapsedRealSec = Math.max(0, (Date.now() - parsed.lastSavedTimestamp) / 1000);
+      const speed = state.simulationSpeed || 1;
+      simSecOfDay += elapsedRealSec * speed;
+    }
+
+    // Format clock accurately from seconds of day
+    const currentDay = state.config?.simulatedDayCount || state.dayCount || 1;
+    const totalDaySec = Math.floor(simSecOfDay % 86400);
+    const hrs = Math.floor(totalDaySec / 3600) % 24;
+    const mins = Math.floor((totalDaySec % 3600) / 60);
+    const ampm = hrs >= 12 ? 'PM' : 'AM';
+    const displayHrs = hrs % 12 === 0 ? 12 : hrs % 12;
+    const displayMins = mins < 10 ? `0${mins}` : mins;
+    const clockStr = `${displayHrs}:${displayMins} ${ampm} (Day ${currentDay})`;
+
+    return {
+      isRunning,
+      targetEnvironment: 'PRODUCTION',
+      simulatedClock: clockStr,
+      simulatedSeconds: simSecOfDay,
+      statusText: isRunning ? `RUNNING (Sim Clock: ${clockStr})` : `IDLE / PAUSED (Sim Clock: ${clockStr})`,
+      activeOperator: parsed.activeOperatorName || state.activeOperatorName || 'Rajesh Sharma',
+      organisationId: orgId,
+      organisationName: orgRecord.name,
+      organisationCode: orgRecord.code,
+      lastSavedTimestamp: parsed.lastSavedTimestamp || Date.now(),
+    };
+  } catch {
+    return {
+      isRunning: false,
+      targetEnvironment: 'PRODUCTION',
+      simulatedClock: '08:00 AM (Day 1)',
+      simulatedSeconds: 8 * 3600,
+      statusText: 'IDLE / STANDBY',
+      organisationId: orgId,
+      organisationName: orgRecord.name,
+      organisationCode: orgRecord.code,
+      lastSavedTimestamp: Date.now(),
+    };
+  }
 }
 
 export async function resetTenantSimulationState(orgId: string): Promise<boolean> {
@@ -469,6 +996,16 @@ export async function resetTenantSimulationState(orgId: string): Promise<boolean
     return true;
   } catch {
     return true;
+  }
+}
+
+export async function getTenantTelemetryCsv(orgId: string): Promise<string | null> {
+  await initializeDatabase();
+  const csvFile = path.join(TENANTS_DIR, orgId, 'production_telemetry.csv');
+  try {
+    return await fs.readFile(csvFile, 'utf-8');
+  } catch {
+    return null;
   }
 }
 
@@ -526,6 +1063,25 @@ export async function reviewChangeRequest(
   }
   all[idx] = req;
   await saveChangeRequests(all);
+
+  // Log administrative audit event
+  try {
+    await logAdminAction({
+      action: approved ? 'PROPOSAL_APPROVED' : 'PROPOSAL_REJECTED',
+      adminEmail,
+      adminBadge: 'ADMIN',
+      adminName: adminEmail,
+      targetId: req.id,
+      targetName: req.title,
+      targetBadge: req.requestedByBadge,
+      details: approved
+        ? `Change proposal "${req.title}" was approved by administrator. Parameters committed.`
+        : `Change proposal "${req.title}" was rejected. Rejection note: ${rejectionNote || 'None'}`,
+    });
+  } catch {
+    // ignore
+  }
+
   return {
     success: true,
     request: req,

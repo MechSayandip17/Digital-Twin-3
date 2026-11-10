@@ -102,7 +102,7 @@
   {
     "id": "usr-opr-101",
     "email": "operator@iiests.ac.in",
-    "password": "ec6e1c25258002eb1c67d15c7f45da7945fa4c58778fd7d88faa5e53e3b4698d",
+    "password": "8bf729f5f3e2ba07cb421f6046e008ef4958665133b14fded2c7271c4664525f",
     "name": "Rajesh Sharma",
     "badgeId": "ME-OPR-4412",
     "role": "PLANT_OPERATOR",
@@ -203,5 +203,112 @@
     ],
     "approvedAt": "2026-11-09T06:48:52.580Z",
     "approvedBy": "sayandipmallickclassf@gmail.com"
+  },
+  {
+    "id": "usr-opr-102",
+    "email": "priyanka.banerjee@mech.iiests.ac.in",
+    "password": "ec6e1c25258002eb1c67d15c7f45da7945fa4c58778fd7d88faa5e53e3b4698d",
+    "name": "Priyanka Banerjee",
+    "badgeId": "ME-MNT-8891",
+    "role": "MAINTENANCE_LEAD",
+    "roleTitle": "Maintenance Engineer",
+    "organisationId": "iiests-mech",
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "department": "Condition Monitoring & Reliability Lab",
+    "status": "APPROVED",
+    "createdAt": "2026-11-01T08:00:00Z",
+    "approvedAt": "2026-11-01T08:00:00Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com",
+    "permissions": [
+      "VIEW_TWIN",
+      "TRIGGER_MAINTENANCE",
+      "REPLACE_TOOL",
+      "OVERRIDE_FAULT"
+    ]
+  },
+  {
+    "id": "usr-opr-103",
+    "email": "anirban.sengupta@mech.iiests.ac.in",
+    "password": "ec6e1c25258002eb1c67d15c7f45da7945fa4c58778fd7d88faa5e53e3b4698d",
+    "name": "Anirban Sengupta",
+    "badgeId": "ME-QAC-3309",
+    "role": "QUALITY_ENGINEER",
+    "roleTitle": "QC Inspector",
+    "organisationId": "iiests-mech",
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "department": "Metrology & NDT Division",
+    "status": "APPROVED",
+    "createdAt": "2026-11-01T08:00:00Z",
+    "approvedAt": "2026-11-01T08:00:00Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com",
+    "permissions": [
+      "VIEW_TWIN",
+      "AUDIT_SCRAP",
+      "REWORK_ROUTING",
+      "EXPORT_TRACEABILITY"
+    ]
+  },
+  {
+    "id": "usr-opr-104",
+    "email": "maria.santos@mech.iiests.ac.in",
+    "password": "ec6e1c25258002eb1c67d15c7f45da7945fa4c58778fd7d88faa5e53e3b4698d",
+    "name": "Maria Santos",
+    "badgeId": "ME-OPR-4413",
+    "role": "PLANT_OPERATOR",
+    "roleTitle": "CNC Shaping & Hobbing Machinist",
+    "organisationId": "iiests-mech",
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "department": "Precision Components Division",
+    "status": "APPROVED",
+    "createdAt": "2026-11-01T08:00:00Z",
+    "approvedAt": "2026-11-01T08:00:00Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC"
+    ]
+  },
+  {
+    "id": "usr-opr-105",
+    "email": "karan.verma@mech.iiests.ac.in",
+    "password": "ec6e1c25258002eb1c67d15c7f45da7945fa4c58778fd7d88faa5e53e3b4698d",
+    "name": "Karan Verma",
+    "badgeId": "ME-ASM-9021",
+    "role": "PLANT_OPERATOR",
+    "roleTitle": "Final Assembly Specialist",
+    "organisationId": "iiests-mech",
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "department": "Final Assembly Division",
+    "status": "APPROVED",
+    "createdAt": "2026-11-01T08:00:00Z",
+    "approvedAt": "2026-11-01T08:00:00Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC"
+    ]
+  },
+  {
+    "id": "usr-opr-106",
+    "email": "deepak.kumar@mech.iiests.ac.in",
+    "password": "ec6e1c25258002eb1c67d15c7f45da7945fa4c58778fd7d88faa5e53e3b4698d",
+    "name": "Deepak Kumar",
+    "badgeId": "ME-PKG-6110",
+    "role": "PLANT_OPERATOR",
+    "roleTitle": "Packaging & Warehouse Logistics Lead",
+    "organisationId": "iiests-mech",
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "department": "Packaging & Dispatch Hub",
+    "status": "APPROVED",
+    "createdAt": "2026-11-01T08:00:00Z",
+    "approvedAt": "2026-11-01T08:00:00Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC"
+    ]
   }
 ]
