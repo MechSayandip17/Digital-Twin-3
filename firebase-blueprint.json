@@ -97,6 +97,25 @@
         "details": { "type": "string" }
       },
       "required": ["id", "timestamp", "adminEmail", "action", "details"]
+    },
+    "Employee": {
+      "title": "Employee",
+      "description": "Active plant workforce roster member",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "assignedStationId": { "type": "string" },
+        "shift": { "type": "string" },
+        "hourlyWage": { "type": "number" },
+        "skillCertification": { "type": "string" },
+        "efficiencyRating": { "type": "number" },
+        "status": { "type": "string", "enum": ["ACTIVE", "ON_BREAK", "OFFLINE"] },
+        "hireDate": { "type": "string" }
+      },
+      "required": ["id", "employeeId", "name", "role", "hourlyWage", "status"]
     }
   },
   "firestore": {
@@ -107,6 +126,10 @@
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/User" },
       "description": "User profiles and credentials"
+    },
+    "/employees/{empId}": {
+      "schema": { "$ref": "#/entities/Employee" },
+      "description": "Active plant workforce roster personnel"
     },
     "/tenants/{orgId}/simulation_state/{stateId}": {
       "schema": { "$ref": "#/entities/TenantSimulationState" },

@@ -152,11 +152,12 @@ test('Plant supervisor registration grants ERP_MRP_CONFIG permissions and approv
 test.after(async () => {
   const { getUsers, saveUsers, getEmployees, saveEmployees } = await import('./db.js');
   const allUsers = await getUsers();
-  const cleanedUsers = allUsers.filter(u => !u.badgeId.startsWith('TEST-') && !u.badgeId.startsWith('PEND-') && !u.badgeId.startsWith('SUP-'));
+  const cleanedUsers = allUsers.filter(u => !u.badgeId.startsWith('PEND-') && !u.badgeId.startsWith('TEST-OPR-'));
   await saveUsers(cleanedUsers);
 
   const allEmployees = await getEmployees();
-  const cleanedEmployees = allEmployees.filter(e => !e.employeeId.startsWith('TEST-') && !e.employeeId.startsWith('PEND-') && !e.employeeId.startsWith('SUP-'));
+  const cleanedEmployees = allEmployees.filter(e => !e.employeeId.startsWith('PEND-') && !e.employeeId.startsWith('TEST-OPR-'));
   await saveEmployees(cleanedEmployees);
 });
+
 

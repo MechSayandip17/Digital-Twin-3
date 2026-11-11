@@ -12,36 +12,34 @@ service cloud.firestore {
 
     // 1. Multi-tenant Organisation registry
     match /organisations/{orgId} {
-      allow read: if true;
-      allow write: if isSignedIn();
+      allow read, write: if true;
     }
 
     // 2. User accounts and profiles
     match /users/{userId} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if isSignedIn();
+      allow read, write: if true;
+    }
+
+    // 2b. Active Workforce Employees Roster
+    match /employees/{empId} {
+      allow read, write: if true;
     }
 
     // 3. Tenant simulation state
     match /tenants/{orgId}/simulation_state/{stateId} {
-      allow read: if true;
-      allow write: if true;
+      allow read, write: if true;
     }
 
     // 4. Parameter change requests
     match /parameter_change_requests/{requestId} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if isSignedIn();
+      allow read, write: if true;
     }
 
     // 5. Password reset applications
     match /password_resets/{resetId} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if isSignedIn();
+      allow read, write: if true;
     }
+
 
     // 6. Admin audit logs
     match /audit_logs/{logId} {

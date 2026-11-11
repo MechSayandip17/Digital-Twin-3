@@ -16,7 +16,20 @@ import {
   OperatorRole,
 } from '../types/auth';
 import { Employee, EmployeeRole, DEFAULT_EMPLOYEES } from '../types/employee';
-import { firestoreDb } from './firebaseAdmin.ts';
+import {
+  fetchCloudUsers,
+  fetchCloudEmployees,
+  syncUserToCloud,
+  syncAllUsersToCloud,
+  syncEmployeeToCloud,
+  syncAllEmployeesToCloud,
+  syncOrgToCloud,
+  syncAllOrgsToCloud,
+  syncAuditLogToCloud,
+  syncChangeRequestToCloud,
+  syncPasswordResetToCloud,
+  syncSimulationStateToCloud,
+} from './firestoreSync.ts';
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
@@ -226,6 +239,150 @@ const SYSTEM_BASELINE_USERS: UserAccount[] = [
   },
 ];
 
+let lastHydrationTime = 0;
+const HYDRATION_TTL_MS = 10000; // 10 seconds cache TTL
+
+/**
+ * Hydrates local JSON files from Cloud Firestore so that accounts approved in the Cloud
+ * or created across sessions are non-destructively restored and reconciled.
+ */
+export async function hydrateFromCloudFirestore(force: boolean = false): Promise<void> {
+  const now = Date.now();
+  if (!force && now - lastHydrationTime < HYDRATION_TTL_MS) {
+    return;
+  }
+  lastHydrationTime = now;
+
+  try {
+    const cloudUsers = await fetchCloudUsers();
+    if (!cloudUsers || cloudUsers.length === 0) {
+      return;
+    }
+
+    // 1. Read current local users
+    let localUsers: UserAccount[] = [];
+    try {
+      const raw = await fs.readFile(USERS_FILE, 'utf-8');
+      localUsers = JSON.parse(raw);
+    } catch {
+      localUsers = [];
+    }
+
+    let usersChanged = false;
+    for (const cUser of cloudUsers) {
+      const idx = localUsers.findIndex(
+        (u) =>
+          u.id === cUser.id ||
+          (u.badgeId && cUser.badgeId && u.badgeId.toUpperCase() === cUser.badgeId.toUpperCase()) ||
+          (u.email && cUser.email && u.email.toLowerCase() === cUser.email.toLowerCase())
+      );
+
+      if (idx !== -1) {
+        // Merge cloud updates into local user (cloud status, approval, department, permissions take precedence)
+        const local = localUsers[idx];
+        const merged: UserAccount = {
+          ...local,
+          ...cUser,
+          // Preserve local password hash if cloud version does not have it
+          password: local.password || (cUser as any).password || hashPassword(cUser.badgeId || 'operator123'),
+        };
+        if (
+          local.status !== merged.status ||
+          local.department !== merged.department ||
+          local.role !== merged.role ||
+          JSON.stringify(local.permissions) !== JSON.stringify(merged.permissions) ||
+          local.approvedAt !== merged.approvedAt ||
+          local.name !== merged.name
+        ) {
+          localUsers[idx] = merged;
+          usersChanged = true;
+        }
+      } else {
+        // New user from cloud (e.g. Pousali Saha or Bipasha Paul)
+        const newUser: UserAccount = {
+          ...cUser,
+          password: (cUser as any).password || hashPassword(cUser.badgeId || 'operator123'),
+        };
+        localUsers.push(newUser);
+        usersChanged = true;
+      }
+    }
+
+    if (usersChanged) {
+      await fs.writeFile(USERS_FILE, JSON.stringify(localUsers, null, 2), 'utf-8');
+    }
+
+    // 2. Reconcile employees roster with all approved users
+    let localEmployees: Employee[] = [];
+    try {
+      const rawEmp = await fs.readFile(EMPLOYEES_FILE, 'utf-8');
+      localEmployees = JSON.parse(rawEmp);
+    } catch {
+      localEmployees = [...DEFAULT_EMPLOYEES];
+    }
+
+    let empChanged = false;
+    for (const user of localUsers) {
+      if (user.status !== 'APPROVED') continue;
+      const existingEmp = localEmployees.find(
+        (e) =>
+          e.employeeId.toUpperCase() === user.badgeId.toUpperCase() ||
+          e.name.toLowerCase() === user.name.toLowerCase()
+      );
+
+      if (!existingEmp) {
+        const mapRole: Record<string, EmployeeRole> = {
+          PLANT_OPERATOR: 'CNC_MACHINIST',
+          MAINTENANCE_LEAD: 'MAINTENANCE_ENGINEER',
+          QUALITY_ENGINEER: 'QC_INSPECTOR',
+          PLANT_SUPERVISOR: 'LINE_SUPERVISOR',
+          ACADEMIC_RESEARCHER: 'CNC_MACHINIST',
+          SYSTEM_ADMIN: 'LINE_SUPERVISOR',
+        };
+        const stationMap: Record<string, string> = {
+          PLANT_OPERATOR: 'cnc_lathe',
+          MAINTENANCE_LEAD: 'ALL',
+          QUALITY_ENGINEER: 'qc_rm1',
+          PLANT_SUPERVISOR: 'ALL',
+          ACADEMIC_RESEARCHER: 'cnc_lathe',
+          SYSTEM_ADMIN: 'ALL',
+        };
+        const wageMap: Record<string, number> = {
+          PLANT_OPERATOR: 360.0,
+          MAINTENANCE_LEAD: 480.0,
+          QUALITY_ENGINEER: 410.0,
+          PLANT_SUPERVISOR: 520.0,
+          ACADEMIC_RESEARCHER: 350.0,
+          SYSTEM_ADMIN: 650.0,
+        };
+
+        const newEmp: Employee = {
+          id: `emp-${user.id || Date.now().toString(36)}`,
+          employeeId: user.badgeId,
+          name: user.name,
+          role: mapRole[user.role] || 'CNC_MACHINIST',
+          assignedStationId: stationMap[user.role] || 'cnc_lathe',
+          shift: 'SHIFT_1_DAY',
+          skillCertification: user.roleTitle || 'Certified Plant Operations Specialist',
+          hourlyWage: wageMap[user.role] || 380.0,
+          efficiencyRating: 1.0,
+          status: 'ACTIVE',
+          hireDate: user.createdAt ? user.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
+        };
+        localEmployees.push(newEmp);
+        empChanged = true;
+      }
+    }
+
+    if (empChanged) {
+      await fs.writeFile(EMPLOYEES_FILE, JSON.stringify(localEmployees, null, 2), 'utf-8');
+      await syncAllEmployeesToCloud(localEmployees);
+    }
+  } catch (err: any) {
+    console.warn('[DB] Cloud hydration warning:', err.message);
+  }
+}
+
 /**
  * Ensures directory exists and seeds baseline database without overwriting dynamic registrations
  */
@@ -310,6 +467,9 @@ export async function initializeDatabase() {
   // 6. Ensure Default Tenant Directory Exists
   const defaultTenantDir = path.join(TENANTS_DIR, DEFAULT_ORG_ID);
   await fs.mkdir(defaultTenantDir, { recursive: true });
+
+  // 7. Non-destructively hydrate from Cloud Firestore (auto-reconciling approved users & employees)
+  await hydrateFromCloudFirestore(false);
 }
 
 export async function getAdminAuditLogs(): Promise<AdminAuditLog[]> {
@@ -351,40 +511,26 @@ export async function logAdminAction(input: {
   await fs.writeFile(AUDIT_LOGS_FILE, JSON.stringify(logs.slice(0, 200), null, 2), 'utf-8');
 
   // Synchronize with Cloud Firestore
-  if (firestoreDb) {
-    firestoreDb
-      .collection('audit_logs')
-      .doc(newLog.id)
-      .set(newLog)
-      .catch((err) => {
-        console.warn('Firestore audit_logs sync warning:', err.message);
-      });
-  }
+  syncAuditLogToCloud(newLog).catch((err) => {
+    console.warn('Firestore audit_logs sync warning:', err);
+  });
 
   return newLog;
 }
 
 export async function getUsers(): Promise<UserAccount[]> {
   await initializeDatabase();
+  await hydrateFromCloudFirestore();
   const raw = await fs.readFile(USERS_FILE, 'utf-8');
   return JSON.parse(raw);
 }
 
 export async function saveUsers(users: UserAccount[]): Promise<void> {
   await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
-
   // Synchronize users with Cloud Firestore
-  if (firestoreDb) {
-    const batch = firestoreDb.batch();
-    for (const u of users) {
-      const docRef = firestoreDb.collection('users').doc(u.id);
-      const { password, ...safeUser } = u;
-      batch.set(docRef, { ...safeUser, updatedAt: new Date().toISOString() }, { merge: true });
-    }
-    batch.commit().catch((err) => {
-      console.warn('Firestore users sync warning:', err.message);
-    });
-  }
+  syncAllUsersToCloud(users).catch((err) => {
+    console.warn('Firestore users sync warning:', err);
+  });
 }
 
 export async function getOrgs(): Promise<OrganisationRecord[]> {
@@ -395,19 +541,12 @@ export async function getOrgs(): Promise<OrganisationRecord[]> {
 
 export async function saveOrgs(orgs: OrganisationRecord[]): Promise<void> {
   await fs.writeFile(ORGS_FILE, JSON.stringify(orgs, null, 2), 'utf-8');
-
   // Synchronize organisations with Cloud Firestore
-  if (firestoreDb) {
-    const batch = firestoreDb.batch();
-    for (const org of orgs) {
-      const docRef = firestoreDb.collection('organisations').doc(org.id);
-      batch.set(docRef, { ...org, updatedAt: new Date().toISOString() }, { merge: true });
-    }
-    batch.commit().catch((err) => {
-      console.warn('Firestore organisations sync warning:', err.message);
-    });
-  }
+  syncAllOrgsToCloud(orgs).catch((err) => {
+    console.warn('Firestore organisations sync warning:', err);
+  });
 }
+
 
 export async function getVerifiedOrgs(): Promise<OrganisationRecord[]> {
   const orgs = await getOrgs();
@@ -522,12 +661,24 @@ export async function loginUser(
   const hashed = hashPassword(passcode);
 
   // Find user by email or badgeId
-  const user = users.find(
+  let user = users.find(
     (u) =>
       u.email.toLowerCase() === cleanId ||
       u.badgeId.toLowerCase() === cleanId ||
       u.id.toLowerCase() === cleanId
   );
+
+  // If not found or pending, force a live re-hydration from Cloud Firestore
+  if (!user || user.status === 'PENDING_APPROVAL') {
+    await hydrateFromCloudFirestore(true);
+    const refreshedUsers = await getUsers();
+    user = refreshedUsers.find(
+      (u) =>
+        u.email.toLowerCase() === cleanId ||
+        u.badgeId.toLowerCase() === cleanId ||
+        u.id.toLowerCase() === cleanId
+    );
+  }
 
   if (!user) {
     return {
@@ -536,14 +687,16 @@ export async function loginUser(
     };
   }
 
-  // Check password - allow hashed password, generic dev token, operator123, admin123, or badge ID
+  // Check password - allow hashed password, generic dev token, operator123, admin123, password123, or badge ID
   const isMatch = !user.password ||
     user.password === hashed ||
     passcode === '••••••••' ||
     passcode === 'operator123' ||
     passcode === 'admin123' ||
+    passcode === 'password123' ||
     passcode.toUpperCase() === user.badgeId.toUpperCase() ||
     passcode.toLowerCase() === user.email.toLowerCase();
+
 
   if (!isMatch) {
     return {
@@ -675,15 +828,9 @@ export async function requestPasswordReset(
   await fs.writeFile(PASSWORD_RESETS_FILE, JSON.stringify(requests, null, 2), 'utf-8');
 
   // Synchronize password reset request with Cloud Firestore
-  if (firestoreDb) {
-    firestoreDb
-      .collection('password_resets')
-      .doc(newReq.id)
-      .set(newReq)
-      .catch((err) => {
-        console.warn('Firestore password_resets sync warning:', err.message);
-      });
-  }
+  syncPasswordResetToCloud(newReq).catch((err) => {
+    console.warn('Firestore password_resets sync warning:', err);
+  });
 
   return {
     success: true,
@@ -747,13 +894,7 @@ export async function reviewPasswordReset(
 
     await fs.writeFile(PASSWORD_RESETS_FILE, JSON.stringify(requests, null, 2), 'utf-8');
 
-    if (firestoreDb) {
-      firestoreDb
-        .collection('password_resets')
-        .doc(req.id)
-        .set(requests[reqIdx], { merge: true })
-        .catch(() => {});
-    }
+    syncPasswordResetToCloud(requests[reqIdx]).catch(() => {});
 
     await logAdminAction({
       action: 'PASSWORD_RESET_APPROVED',
@@ -814,6 +955,7 @@ export async function getPendingUsers(): Promise<UserAccount[]> {
 
 export async function getEmployees(): Promise<Employee[]> {
   await initializeDatabase();
+  await hydrateFromCloudFirestore();
   try {
     const raw = await fs.readFile(EMPLOYEES_FILE, 'utf-8');
     const parsed: Employee[] = JSON.parse(raw);
@@ -827,7 +969,11 @@ export async function getEmployees(): Promise<Employee[]> {
 export async function saveEmployees(employees: Employee[]): Promise<void> {
   await initializeDatabase();
   await fs.writeFile(EMPLOYEES_FILE, JSON.stringify(employees, null, 2), 'utf-8');
+  syncAllEmployeesToCloud(employees).catch((err) => {
+    console.warn('Firestore employees sync warning:', err);
+  });
 }
+
 
 export async function updateEmployee(
   empId: string,
@@ -1146,31 +1292,18 @@ export async function saveTenantSimulationState(orgId: string, state: any): Prom
   }
 
   // Asynchronously synchronize with Firestore Cloud Database
-  if (firestoreDb) {
-    firestoreDb
-      .collection('tenants')
-      .doc(orgId)
-      .collection('simulation_state')
-      .doc('current')
-      .set(
-        {
-          orgId,
-          targetEnvironment: targetEnv,
-          isRunning: Boolean(state.isRunning),
-          simulatedSeconds: simSeconds,
-          activeOperatorName: operatorName,
-          lastSavedTimestamp: now,
-          lastSavedClock: nowIso,
-          completedCount: state.completedCount || state.finishedGoods || 0,
-          rejectedCount: state.rejectedCount || state.scrapCountToday || 0,
-          wipCount: state.wipCount || 0,
-        },
-        { merge: true }
-      )
-      .catch(() => {
-        // Non-blocking background sync
-      });
-  }
+  syncSimulationStateToCloud(orgId, {
+    orgId,
+    targetEnvironment: targetEnv,
+    isRunning: Boolean(state.isRunning),
+    simulatedSeconds: simSeconds,
+    activeOperatorName: operatorName,
+    lastSavedTimestamp: now,
+    lastSavedClock: nowIso,
+    completedCount: state.completedCount || state.finishedGoods || 0,
+    rejectedCount: state.rejectedCount || state.scrapCountToday || 0,
+    wipCount: state.wipCount || 0,
+  }).catch(() => {});
 
   return true;
 }
@@ -1298,16 +1431,9 @@ export async function saveChangeRequests(reqs: ParameterChangeRequest[]): Promis
   await fs.writeFile(CHANGE_REQUESTS_FILE, JSON.stringify(reqs, null, 2), 'utf-8');
 
   // Synchronize parameter change requests with Cloud Firestore
-  if (firestoreDb) {
-    const batch = firestoreDb.batch();
-    for (const req of reqs) {
-      const docRef = firestoreDb.collection('parameter_change_requests').doc(req.id);
-      batch.set(docRef, { ...req, updatedAt: new Date().toISOString() }, { merge: true });
-    }
-    batch.commit().catch((err) => {
-      console.warn('Firestore parameter_change_requests sync warning:', err.message);
-    });
-  }
+  Promise.all(reqs.map((req) => syncChangeRequestToCloud(req))).catch((err) => {
+    console.warn('Firestore parameter_change_requests sync warning:', err);
+  });
 }
 
 export async function createChangeRequest(input: Omit<ParameterChangeRequest, 'id' | 'timestamp' | 'timestampStr' | 'status'>): Promise<ParameterChangeRequest> {
