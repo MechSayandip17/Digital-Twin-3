@@ -27,6 +27,8 @@ import {
   controlTenantSimulation,
   getDailyShiftReport,
   saveDailyShiftReport,
+  buildLiveShiftReportFromState,
+  subscribeServerShiftReportUpdates,
 } from './src/server/db.js';
 
 import { ADMIN_EMAIL } from './src/types/auth.js';
@@ -464,7 +466,7 @@ async function startServer() {
     }
   });
 
-  // 7. Multi-Tenant Digital Twin State: Save
+  // 7. Multi-Tenant Digital Twin State: Save (STRICT PRODUCTION ISOLATION GUARD)
   app.post('/api/twin/state/:orgId', async (req: Request, res: Response) => {
     try {
       const { orgId } = req.params;
@@ -472,8 +474,15 @@ async function startServer() {
       if (!state) {
         return res.status(400).json({ success: false, error: 'Missing simulation state in body.' });
       }
-      await saveTenantSimulationState(orgId, state);
-      res.json({ success: true, message: `Digital twin state persisted for tenant ${orgId}` });
+      if (state.targetEnvironment && state.targetEnvironment !== 'PRODUCTION') {
+        return res.json({
+          success: false,
+          skipped: true,
+          message: `Skipped server persistence for sandbox environment ${state.targetEnvironment}`,
+        });
+      }
+      const saved = await saveTenantSimulationState(orgId, state);
+      res.json({ success: saved, message: `Digital twin state persisted for tenant ${orgId}` });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -527,6 +536,15 @@ async function startServer() {
         adminBadge || 'ADMIN',
         options
       );
+      if (result.success && result.state) {
+        const liveRep = buildLiveShiftReportFromState(orgId, result.state);
+        await saveDailyShiftReport(orgId, {
+          ...liveRep,
+          lastAuditAction: `TWIN_${action}`,
+          lastAuditBy: adminEmail || ADMIN_EMAIL,
+          lastAuditTimestamp: new Date().toISOString(),
+        });
+      }
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
@@ -550,11 +568,56 @@ async function startServer() {
       if (!report) {
         return res.status(400).json({ success: false, error: 'report object is required' });
       }
-      await saveDailyShiftReport(orgId, report);
-      res.json({ success: true, message: 'Daily shift report synced to server and cloud database.' });
+      const ok = await saveDailyShiftReport(orgId, report);
+      res.json({
+        success: ok,
+        message: ok
+          ? 'Daily shift report synced to server and cloud database.'
+          : 'Skipped report persistence for non-PRODUCTION environment.',
+      });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
+  });
+
+  // 8d. Real-Time Server-Sent Events (SSE) Stream for Shift Summary Report updates
+  app.get('/api/twin/shift-report/stream', async (req: Request, res: Response) => {
+    const orgId = (req.query.orgId as string) || 'iiests-mech';
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    try {
+      const initialReport = await getDailyShiftReport(orgId);
+      res.write(`data: ${JSON.stringify({ type: 'SHIFT_REPORT_SYNC', orgId, report: initialReport })}\n\n`);
+    } catch {
+      // ignore initial push error
+    }
+
+    const unsubscribe = subscribeServerShiftReportUpdates((updatedOrgId, updatedReport) => {
+      if (updatedOrgId === orgId) {
+        try {
+          res.write(`data: ${JSON.stringify({ type: 'SHIFT_REPORT_UPDATE', orgId: updatedOrgId, report: updatedReport })}\n\n`);
+        } catch {
+          // stream closed
+        }
+      }
+    });
+
+    const keepAlive = setInterval(() => {
+      try {
+        res.write(': keepalive\n\n');
+      } catch {
+        // stream closed
+      }
+    }, 25000);
+
+    req.on('close', () => {
+      clearInterval(keepAlive);
+      unsubscribe();
+      res.end();
+    });
   });
 
 

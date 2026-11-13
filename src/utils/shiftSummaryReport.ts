@@ -1,5 +1,6 @@
 import { PlantSimulationState, FaultIncidentRecord } from '../types/factory';
 import { PlantEnergyAnalytics } from '../types/energy';
+import { getShiftTimingDetails, isShiftCurrentlyEnded } from './shiftTime';
 
 export interface ShiftEquipmentHealthSummary {
   stationId: string;
@@ -18,7 +19,11 @@ export interface ShiftEquipmentHealthSummary {
 export interface ShiftSummaryReport {
   dayNumber: number;
   shiftDateStr: string;
-  shiftWindow: string; // e.g. "08:00 AM – 04:00 PM (8.0 Hours)"
+  shiftStartHour: number;
+  shiftDurationHours: number;
+  shiftStartTimeStr: string;
+  shiftEndTimeStr: string;
+  shiftWindow: string; // Dynamic, e.g. "08:00 AM – 06:00 PM (10.0 Hours)"
   shiftStatus: 'SHIFT_COMPLETED' | 'SHIFT_IN_PROGRESS';
   
   // Production Output & Arrears Backlog
@@ -30,6 +35,10 @@ export interface ShiftSummaryReport {
   scrapCountToday: number;
   firstPassYieldPercent: number;
   overallOeePercent: number;
+  availabilityPercent?: number;
+  performancePercent?: number;
+  lastUpdatedAt?: string;
+  sourceEnvironment?: string;
   
   // Per-Line QC Reworks and Scraps
   reworksToday: {
@@ -142,9 +151,14 @@ export function generateShiftSummaryReport(
     dailyTargetUnits: 360,
     arrearsUnits: 0,
   } as any;
+  const timing = getShiftTimingDetails(config.shiftStartHour ?? 8, config.shiftDurationHours ?? 8);
   const currentHour = (config.simulatedSecondsOfDay / 3600) % 24;
-  const shiftEnd = config.shiftStartHour + config.shiftDurationHours;
-  const isShiftEnded = currentHour >= shiftEnd || !config.isShiftOpen;
+  const isShiftEnded = isShiftCurrentlyEnded(
+    config.simulatedSecondsOfDay,
+    timing.shiftStartHour,
+    timing.shiftDurationHours,
+    config.isShiftOpen
+  );
 
   const completedCount = state?.completedCount || 0;
   const fulfillment = Math.round((completedCount / Math.max(1, config.dailyTargetUnits)) * 100);
@@ -320,7 +334,7 @@ export function generateShiftSummaryReport(
 
   if (criticalEquipmentList.length > 0) {
     recommendations.push(
-      `CRITICAL ALERT: ${criticalEquipmentList.map(c => c.name).join(', ')} require mandatory inspection before starting tomorrow's 8:00 AM shift.`
+      `CRITICAL ALERT: ${criticalEquipmentList.map(c => c.name).join(', ')} require mandatory inspection before starting tomorrow's ${timing.shiftStartTimeStr} shift.`
     );
   } else {
     recommendations.push('All line machinery running within ISO 10816 Zone A/B vibration limits. RUL baselines remain healthy (>100 hrs).');
@@ -333,7 +347,11 @@ export function generateShiftSummaryReport(
   return {
     dayNumber: config.simulatedDayCount,
     shiftDateStr: config.simulatedDate,
-    shiftWindow: `08:00 AM – 04:00 PM (${config.shiftDurationHours}.0 Hours)`,
+    shiftStartHour: timing.shiftStartHour,
+    shiftDurationHours: timing.shiftDurationHours,
+    shiftStartTimeStr: timing.shiftStartTimeStr,
+    shiftEndTimeStr: timing.shiftEndTimeStr,
+    shiftWindow: timing.shiftWindowLabel,
     shiftStatus: isShiftEnded ? 'SHIFT_COMPLETED' : 'SHIFT_IN_PROGRESS',
     finishedGoodsToday: state.completedCount,
     dailyTargetUnits: config.dailyTargetUnits,
@@ -343,6 +361,10 @@ export function generateShiftSummaryReport(
     scrapCountToday: totalScraps,
     firstPassYieldPercent: state.oee.quality,
     overallOeePercent: state.oee.overallOEE,
+    availabilityPercent: state.oee.availability,
+    performancePercent: state.oee.performance,
+    lastUpdatedAt: new Date().toISOString(),
+    sourceEnvironment: (state as any)?.targetEnvironment || 'PRODUCTION',
     reworksToday: {
       total: totalReworks,
       rm1Lathe: reworksRm1,
@@ -372,5 +394,74 @@ export function generateShiftSummaryReport(
     criticalEquipmentList,
     majorMaintenanceEvents,
     prescriptiveRecommendations: recommendations,
+  };
+}
+
+/**
+ * Enriches a ShiftSummaryReport with flat Admin Portal telemetry fields
+ * so both ShiftSummaryModal and Admin Governance Daily Report stay 100% synchronized.
+ */
+export function buildUnifiedShiftReportPayload(
+  report: ShiftSummaryReport,
+  state?: PlantSimulationState
+): Record<string, any> {
+  const timing = getShiftTimingDetails(
+    report.shiftStartHour ?? state?.config?.shiftStartHour ?? 8,
+    report.shiftDurationHours ?? state?.config?.shiftDurationHours ?? 8
+  );
+  const latheWear = state?.stations?.['cnc_lathe']?.sensors?.toolWearIndex;
+  const millWear = state?.stations?.['cnc_milling']?.sensors?.toolWearIndex;
+  const shaperWear = state?.stations?.['cnc_shaping']?.sensors?.toolWearIndex;
+
+  const trucksArrived = state?.config?.trucks
+    ? [state.config.trucks.rm1, state.config.trucks.rm2, state.config.trucks.rm3].filter(
+        (t) => t?.hasArrived
+      ).length
+    : 3;
+
+  return {
+    ...report,
+    reportId: `dsr-${report.dayNumber}-${report.shiftDateStr}`,
+    simulatedDayCount: report.dayNumber,
+    simulatedDate: report.shiftDateStr,
+    shiftName: timing.shiftNameLabel,
+    shiftStartTimeStr: timing.shiftStartTimeStr,
+    shiftEndTimeStr: timing.shiftEndTimeStr,
+    shiftWindow: timing.shiftWindowLabel,
+    operatingHours: timing.shiftDurationHours,
+    durationHours: timing.shiftDurationHours,
+    finishedGoodsCount: report.finishedGoodsToday,
+    finishedGoods: report.finishedGoodsToday,
+    targetUnits: report.dailyTargetUnits,
+    arrearsCount: report.arrearsBacklogUnits,
+    arrearsBacklog: report.arrearsBacklogUnits,
+    scrapCount: report.scrapCountToday,
+    oeePct: Number((report.overallOeePercent ?? 0).toFixed(1)),
+    overallOEE: Number((report.overallOeePercent ?? 0).toFixed(1)),
+    availabilityPct: Number((report.availabilityPercent ?? state?.oee?.availability ?? 92).toFixed(1)),
+    performancePct: Number((report.performancePercent ?? state?.oee?.performance ?? 96).toFixed(1)),
+    fpyPct: Number((report.firstPassYieldPercent ?? 100).toFixed(1)),
+    firstPassYield: Number((report.firstPassYieldPercent ?? 100).toFixed(1)),
+    energyKwh: Number((report.totalEnergyConsumedKwh ?? 0).toFixed(1)),
+    energyConsumedKwh: Number((report.totalEnergyConsumedKwh ?? 0).toFixed(1)),
+    energyCostInr: Number((report.totalEnergyCostInr ?? 0).toFixed(2)),
+    powerFactor: report.powerFactor ?? 0.96,
+    trucksDispatched: trucksArrived,
+    isShiftOpen: state?.config?.isShiftOpen ?? report.shiftStatus !== 'SHIFT_COMPLETED',
+    isProductionRunning: Boolean(state?.isRunning),
+    subsystemWear: {
+      lathe: typeof latheWear === 'number' ? Number(latheWear.toFixed(3)) : 0.12,
+      mill: typeof millWear === 'number' ? Number(millWear.toFixed(3)) : 0.08,
+      shaper: typeof shaperWear === 'number' ? Number(shaperWear.toFixed(3)) : 0.06,
+    },
+    subsystemStatuses: {
+      lathe: state?.stations?.['cnc_lathe']?.status || 'NOMINAL',
+      mill: state?.stations?.['cnc_milling']?.status || 'NOMINAL',
+      shaper: state?.stations?.['cnc_shaping']?.status || 'NOMINAL',
+      qc: state?.stations?.['qc_rm1']?.status || 'INSPECTING',
+    },
+    generatedAt: new Date().toISOString(),
+    lastUpdatedAt: new Date().toISOString(),
+    sourceEnvironment: (state as any)?.targetEnvironment || report.sourceEnvironment || 'PRODUCTION',
   };
 }

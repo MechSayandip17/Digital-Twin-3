@@ -35,9 +35,15 @@ import { CustomLayoutBuilder } from './components/CustomLayoutBuilder';
 import { FinanceAndERPView } from './components/FinanceAndERPView';
 import { EnergyAnalyticsView } from './components/EnergyAnalyticsView';
 import { ShiftSummaryModal } from './components/ShiftSummaryModal';
-import { AuditTrailView } from './components/AuditTrailView';
 import { calculatePlantEnergyAnalytics } from './simulation/energyEngine';
-import { generateShiftSummaryReport } from './utils/shiftSummaryReport';
+import { generateShiftSummaryReport, buildUnifiedShiftReportPayload } from './utils/shiftSummaryReport';
+import { formatHourOfDay } from './utils/shiftTime';
+import {
+  canPersistToProductionStore,
+  resolveEnvironmentStorageKey,
+  isValidProductionSnapshot,
+  pickNewestProductionState,
+} from './utils/environmentIsolation';
 import {
   Activity,
   AlertTriangle,
@@ -94,55 +100,68 @@ import {
 export default function App() {
   const [simulationState, setSimulationState] = useState<PlantSimulationState>(() => {
     try {
-      // Determine active tenant organization to load isolated progress
       let activeOrgId = 'iiests-mech';
+      let activeEnv: TwinEnvironment = 'PRODUCTION';
       try {
-        const savedSession = localStorage.getItem('digiTwin_auth_session');
+        const savedSession = sessionStorage.getItem('digiTwin_auth_session');
         if (savedSession) {
           const parsedSession = JSON.parse(savedSession);
           if (parsedSession?.operator?.organisationId) {
             activeOrgId = parsedSession.operator.organisationId;
+          }
+          if (parsedSession?.environment) {
+            activeEnv = parsedSession.environment;
           }
         }
       } catch {
         // ignore
       }
 
-      // Check tenant-isolated state first, then fallback to global saved state
-      const tenantKey = `aerotwin_tenant_state_${activeOrgId}`;
-      const savedTenant = localStorage.getItem(tenantKey);
-      const savedFull = savedTenant || localStorage.getItem('aerotwin_saved_simulation_full');
+      if (activeEnv !== 'PRODUCTION') {
+        const sandboxRaw = localStorage.getItem(resolveEnvironmentStorageKey(activeEnv, activeOrgId));
+        if (sandboxRaw) {
+          const parsedSandbox = JSON.parse(sandboxRaw);
+          if (parsedSandbox && parsedSandbox.stations && parsedSandbox.config) {
+            return { ...parsedSandbox, targetEnvironment: activeEnv, isRunning: false };
+          }
+        }
+        return { ...createInitialPlantState(undefined, false), targetEnvironment: activeEnv };
+      }
 
-      if (savedFull) {
-        const parsed = JSON.parse(savedFull);
-        if (parsed && parsed.stations && parsed.config) {
-          // Progress must NOT disappear on page reload: retain exact state, day count, completed items, arrears, and stations
-          let restored = parsed;
-          const lastSaved = parsed._savedWallTime || localStorage.getItem('aerotwin_last_saved_wall_time');
-          if (parsed.isRunning && lastSaved) {
-            const elapsed = Math.max(0, (Date.now() - Number(lastSaved)) / 1000);
-            if (elapsed > 1 && elapsed < 86400 * 7) {
-              const speed = parsed.simulationSpeed || 1;
-              const simSecs = elapsed * speed;
-              const steps = 30;
-              const dt = simSecs / steps;
-              for (let i = 0; i < steps; i++) {
-                restored = tickSimulation(restored, dt);
-              }
+      // PRODUCTION mode: restore strictly from valid Production snapshots (never Simulation/Historical)
+      const tenantKey = `aerotwin_tenant_state_${activeOrgId}`;
+      const rawTenant = localStorage.getItem(tenantKey);
+      const rawGlobal = localStorage.getItem('aerotwin_saved_simulation_full');
+      const parsedTenant = rawTenant ? JSON.parse(rawTenant) : null;
+      const parsedGlobal = rawGlobal ? JSON.parse(rawGlobal) : null;
+      const chosen = pickNewestProductionState(parsedGlobal, parsedTenant);
+
+      if (chosen) {
+        let restored: PlantSimulationState = { ...chosen, targetEnvironment: 'PRODUCTION' };
+        const lastSaved = chosen._serverSavedTimestamp || chosen._savedWallTime || localStorage.getItem('aerotwin_last_saved_wall_time');
+        if (chosen.isRunning && lastSaved) {
+          const elapsed = Math.max(0, (Date.now() - Number(lastSaved)) / 1000);
+          if (elapsed > 1 && elapsed < 86400 * 7) {
+            const speed = chosen.simulationSpeed || 1;
+            const simSecs = elapsed * speed;
+            const steps = 30;
+            const dt = simSecs / steps;
+            for (let i = 0; i < steps; i++) {
+              restored = tickSimulation(restored, dt);
             }
           }
-          return restored;
         }
+        return restored;
       }
       const saved = localStorage.getItem('aerotwin_plant_config');
       if (saved) {
         const parsed = JSON.parse(saved);
-        return createInitialPlantState(parsed, false);
+        return { ...createInitialPlantState(parsed, false), targetEnvironment: 'PRODUCTION' };
       }
     } catch {
       // ignore storage access errors
     }
-    return createInitialPlantState(undefined, false);
+    return { ...createInitialPlantState(undefined, false), targetEnvironment: 'PRODUCTION' };
   });
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
@@ -216,7 +235,6 @@ export default function App() {
   });
 
   const [isApprovalsModalOpen, setIsApprovalsModalOpen] = useState(false);
-  const [adminModalTab, setAdminModalTab] = useState<'proposals' | 'audit_trail'>('proposals');
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     action: 'START' | 'PAUSE' | 'RESET' | 'ADVANCE_DAY';
@@ -228,6 +246,12 @@ export default function App() {
   const [isProcessingAction, setIsProcessingAction] = useState(false);
   const [changeRequests, setChangeRequests] = useState<ParameterChangeRequest[]>([]);
   const [firebaseConnected, setFirebaseConnected] = useState<boolean>(true);
+  const [liveSyncedReportMeta, setLiveSyncedReportMeta] = useState<{
+    syncedAt?: string;
+    lastAuditAction?: string;
+    shiftCompletedRemotely?: boolean;
+    remoteDayNumber?: number;
+  }>({});
 
   // Validate Firestore connection on boot (per Firebase skill guidelines)
   useEffect(() => {
@@ -262,15 +286,27 @@ export default function App() {
   }, []);
 
   // High-Security Terminal Enforcement:
-  // Browser refresh/reload clears auth session so user is logged out, but simulation state remains 100% saved in persistent storage
+  // Browser refresh/reload clears auth session so user is logged out, while PRODUCTION and SANDBOX states stay isolated
   useEffect(() => {
     const handleBeforeUnload = () => {
+      if (!authSession.isAuthenticated) {
+        sessionStorage.removeItem('digiTwin_auth_session');
+        localStorage.removeItem('digiTwin_auth_session');
+        return;
+      }
       const activeOrg = authSession.operator?.organisationId || 'iiests-mech';
       try {
         const stateWithWall = { ...simulationState, _savedWallTime: Date.now() };
-        localStorage.setItem('aerotwin_saved_simulation_full', JSON.stringify(stateWithWall));
-        localStorage.setItem(`aerotwin_tenant_state_${activeOrg}`, JSON.stringify(stateWithWall));
-        localStorage.setItem('aerotwin_last_saved_wall_time', String(Date.now()));
+        if (canPersistToProductionStore(authSession.environment, simulationState?.targetEnvironment)) {
+          localStorage.setItem('aerotwin_saved_simulation_full', JSON.stringify(stateWithWall));
+          localStorage.setItem(`aerotwin_tenant_state_${activeOrg}`, JSON.stringify(stateWithWall));
+          localStorage.setItem('aerotwin_last_saved_wall_time', String(Date.now()));
+        } else {
+          localStorage.setItem(
+            resolveEnvironmentStorageKey(authSession.environment, activeOrg),
+            JSON.stringify({ ...stateWithWall, targetEnvironment: authSession.environment })
+          );
+        }
       } catch {
         // ignore
       }
@@ -297,10 +333,31 @@ export default function App() {
       operator.email === 'soumyajit.chakraborty@mech.iiests.ac.in' ||
       operator.email === 'chitrayan.biswas@mech.iiests.ac.in';
 
-    // Admins default to PRODUCTION mode (the live digital twin) unless explicitly in sandbox
-    const effectiveEnv: TwinEnvironment = isSuperAdmin && environment !== 'SIMULATION' && environment !== 'HISTORICAL'
-      ? 'PRODUCTION'
-      : environment;
+    const effectiveEnv: TwinEnvironment =
+      isSuperAdmin && environment !== 'SIMULATION' && environment !== 'HISTORICAL'
+        ? 'PRODUCTION'
+        : environment;
+
+    // Flush active in-memory Production state before switching into Simulation/Historical sandbox
+    if (
+      effectiveEnv !== 'PRODUCTION' &&
+      authSession.isAuthenticated &&
+      canPersistToProductionStore(authSession.environment, simulationState?.targetEnvironment)
+    ) {
+      try {
+        const prodSnapshot = {
+          ...simulationState,
+          targetEnvironment: 'PRODUCTION',
+          _savedWallTime: Date.now(),
+        };
+        localStorage.setItem('aerotwin_saved_simulation_full', JSON.stringify(prodSnapshot));
+        localStorage.setItem(`aerotwin_tenant_state_${orgId}`, JSON.stringify(prodSnapshot));
+        localStorage.setItem('aerotwin_last_saved_wall_time', String(Date.now()));
+        apiClient.saveTenantState(orgId, prodSnapshot).catch(() => {});
+      } catch {
+        // ignore
+      }
+    }
 
     const updatedOp = { ...operator, organisation: orgName, organisationId: orgId };
     const session: AuthSession = {
@@ -316,29 +373,34 @@ export default function App() {
       const isProduction = effectiveEnv === 'PRODUCTION';
 
       if (isProduction) {
-        // PRODUCTION DIGITAL TWIN: Continuous uninterrupted physical twin SCADA
-        // 1. Check local tenant state
-        const localTenant = localStorage.getItem(`aerotwin_tenant_state_${orgId}`);
-        if (localTenant) {
-          const parsedLocal = JSON.parse(localTenant);
-          if (parsedLocal && parsedLocal.stations && parsedLocal.config) {
-            setSimulationState({
-              ...parsedLocal,
-              targetEnvironment: 'PRODUCTION',
-              isRunning: true, // Keep running continuous twin! Never pause on admin login!
-            });
-          }
+        // PRODUCTION DIGITAL TWIN: Restore newest verified Production state without reset or pause
+        let parsedLocal: any = null;
+        try {
+          const localTenant = localStorage.getItem(`aerotwin_tenant_state_${orgId}`);
+          const localGlobal = localStorage.getItem('aerotwin_saved_simulation_full');
+          const c1 = localTenant ? JSON.parse(localTenant) : null;
+          const c2 = localGlobal ? JSON.parse(localGlobal) : null;
+          parsedLocal = pickNewestProductionState(c2, c1);
+        } catch {
+          parsedLocal = null;
         }
-        // 2. Check remote server tenant database
+
         const remote = await apiClient.loadTenantState(orgId);
-        const stateToLoad = (remote && remote.stations && remote.config) ? remote : (remote?.state?.stations ? remote.state : null);
-        if (stateToLoad) {
-          let updatedState = { ...stateToLoad, targetEnvironment: 'PRODUCTION', isRunning: true };
-          const serverSavedTime = stateToLoad._serverSavedTimestamp || remote._serverSavedTimestamp;
-          if (serverSavedTime) {
-            const elapsedRealSeconds = Math.max(0, (Date.now() - serverSavedTime) / 1000);
+        const rawRemote = remote && remote.stations && remote.config ? remote : remote?.state?.stations ? remote.state : null;
+        const chosen = pickNewestProductionState(parsedLocal, rawRemote);
+
+        if (chosen) {
+          const shouldRun = chosen.isRunning !== undefined ? Boolean(chosen.isRunning) : true;
+          let updatedState: PlantSimulationState = {
+            ...chosen,
+            targetEnvironment: 'PRODUCTION',
+            isRunning: shouldRun,
+          };
+          const savedWall = chosen._serverSavedTimestamp || chosen._savedWallTime || remote?._serverSavedTimestamp;
+          if (shouldRun && savedWall) {
+            const elapsedRealSeconds = Math.max(0, (Date.now() - Number(savedWall)) / 1000);
             if (elapsedRealSeconds > 0.5 && elapsedRealSeconds < 86400 * 7) {
-              const speed = stateToLoad.simulationSpeed || 1;
+              const speed = chosen.simulationSpeed || 1;
               const simSecondsToAdvance = elapsedRealSeconds * speed;
               const maxChunks = 40;
               const chunkDt = simSecondsToAdvance / maxChunks;
@@ -349,17 +411,17 @@ export default function App() {
           }
           setSimulationState(updatedState);
         } else {
-          // Keep current state running in PRODUCTION
-          setSimulationState(prev => ({
-            ...prev,
-            targetEnvironment: 'PRODUCTION',
-            isRunning: true,
-          }));
+          // Initialize Production if none saved yet (or retain existing valid Production state)
+          setSimulationState(prev => {
+            if (isValidProductionSnapshot(prev)) {
+              return { ...prev, targetEnvironment: 'PRODUCTION', isRunning: true };
+            }
+            return { ...createInitialPlantState(prev.config, true), targetEnvironment: 'PRODUCTION' };
+          });
         }
       } else {
-        // SANDBOX MODES: SIMULATION or HISTORICAL
-        // Decoupled from production live twin; inactive / paused until operator explicitly starts it
-        const sandboxKey = `aerotwin_sandbox_${effectiveEnv.toLowerCase()}`;
+        // SANDBOX MODES: SIMULATION or HISTORICAL (strictly decoupled from PRODUCTION timer/store)
+        const sandboxKey = resolveEnvironmentStorageKey(effectiveEnv, orgId);
         const savedSandbox = localStorage.getItem(sandboxKey);
         if (savedSandbox) {
           try {
@@ -372,10 +434,11 @@ export default function App() {
             // ignore
           }
         }
+        // Create clean independent sandbox copy using current config (never mutating Production timer)
         setSimulationState(prev => ({
-          ...prev,
+          ...createInitialPlantState(prev.config, false),
           targetEnvironment: effectiveEnv,
-          isRunning: false, // Inactive until operator starts it in this sandbox session!
+          isRunning: false,
         }));
       }
     } catch {
@@ -424,27 +487,42 @@ export default function App() {
   // 3. Employee Roster Management: Only Admins can add or edit employee records
   const canManageEmployees = isAdmin;
 
-  // Auto-save tenant simulation state: PRODUCTION mode saves to isolated server & local tenant database
+  // Auto-save tenant simulation state: STRICT PRODUCTION ISOLATION
   useEffect(() => {
     if (!authSession.isAuthenticated) return;
-    const isProduction = authSession.environment === 'PRODUCTION';
+    const activeOrg = authSession.operator?.organisationId || 'iiests-mech';
 
-    if (!isProduction) {
-      const sandboxKey = `aerotwin_sandbox_${authSession.environment.toLowerCase()}`;
-      try {
-        localStorage.setItem(sandboxKey, JSON.stringify(simulationState));
-      } catch {
-        // ignore
-      }
-      return;
+    if (!canPersistToProductionStore(authSession.environment, simulationState?.targetEnvironment)) {
+      const sandboxKey = resolveEnvironmentStorageKey(authSession.environment, activeOrg);
+      const timer = setTimeout(() => {
+        try {
+          localStorage.setItem(
+            sandboxKey,
+            JSON.stringify({
+              ...simulationState,
+              targetEnvironment: authSession.environment,
+              _savedWallTime: Date.now(),
+            })
+          );
+        } catch {
+          // ignore
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
     }
 
-    if (!authSession.operator?.organisationId) return;
-    const orgId = authSession.operator.organisationId;
     const timer = setTimeout(() => {
       try {
-        localStorage.setItem(`aerotwin_tenant_state_${orgId}`, JSON.stringify(simulationState));
-        apiClient.saveTenantState(orgId, simulationState);
+        const prodSnapshot = {
+          ...simulationState,
+          targetEnvironment: 'PRODUCTION' as const,
+          _savedWallTime: Date.now(),
+        };
+        localStorage.setItem('aerotwin_saved_simulation_full', JSON.stringify(prodSnapshot));
+        localStorage.setItem('aerotwin_last_saved_wall_time', String(Date.now()));
+        localStorage.setItem('aerotwin_plant_config', JSON.stringify(simulationState.config));
+        localStorage.setItem(`aerotwin_tenant_state_${activeOrg}`, JSON.stringify(prodSnapshot));
+        apiClient.saveTenantState(activeOrg, prodSnapshot);
       } catch {
         // ignore
       }
@@ -453,12 +531,22 @@ export default function App() {
   }, [simulationState, authSession]);
 
   const handleSignOut = () => {
-    // Immediately persist current simulation state so other employees resuming later will find the exact clock & progress
     const activeOrg = authSession.operator?.organisationId || 'iiests-mech';
     try {
-      localStorage.setItem('aerotwin_saved_simulation_full', JSON.stringify(simulationState));
-      localStorage.setItem(`aerotwin_tenant_state_${activeOrg}`, JSON.stringify(simulationState));
-      apiClient.saveTenantState(activeOrg, simulationState);
+      const stateWithWall = { ...simulationState, _savedWallTime: Date.now() };
+      if (canPersistToProductionStore(authSession.environment, simulationState?.targetEnvironment)) {
+        const prodPayload = { ...stateWithWall, targetEnvironment: 'PRODUCTION' };
+        localStorage.setItem('aerotwin_saved_simulation_full', JSON.stringify(prodPayload));
+        localStorage.setItem(`aerotwin_tenant_state_${activeOrg}`, JSON.stringify(prodPayload));
+        localStorage.setItem('aerotwin_last_saved_wall_time', String(Date.now()));
+        apiClient.saveTenantState(activeOrg, prodPayload);
+      } else {
+        // Sandbox isolation: persist ONLY to sandbox key; NEVER overwrite PRODUCTION state
+        localStorage.setItem(
+          resolveEnvironmentStorageKey(authSession.environment, activeOrg),
+          JSON.stringify({ ...stateWithWall, targetEnvironment: authSession.environment })
+        );
+      }
     } catch {
       // ignore
     }
@@ -472,6 +560,7 @@ export default function App() {
     };
     setAuthSession(unauth);
     try {
+      sessionStorage.removeItem('digiTwin_auth_session');
       localStorage.removeItem('digiTwin_auth_session');
     } catch {
       // ignore
@@ -537,11 +626,71 @@ export default function App() {
     return generateShiftSummaryReport(simulationState, plantEnergyAnalytics);
   }, [simulationState, plantEnergyAnalytics]);
 
-  // Auto-trigger Shift Summary Modal when shift closes (end of shift, e.g. 4:00 PM)
+  // Real-time Daily Shift Report Sync (PRODUCTION -> Admin Portal + Firestore + SSE)
+  const shiftSummaryRef = useRef(shiftSummaryReport);
+  shiftSummaryRef.current = shiftSummaryReport;
+
+  useEffect(() => {
+    if (!authSession.isAuthenticated) return;
+    if (!canPersistToProductionStore(authSession.environment, stateRef.current?.targetEnvironment)) return;
+    const orgId = authSession.operator?.organisationId || 'iiests-mech';
+
+    const pushShiftReport = () => {
+      const currState = stateRef.current;
+      if (!canPersistToProductionStore(authSession.environment, currState?.targetEnvironment)) return;
+      const unified = buildUnifiedShiftReportPayload(shiftSummaryRef.current, currState);
+      apiClient.saveDailyShiftReport(orgId, unified).catch(() => {});
+    };
+
+    // Push immediately on login / shift close / day / target / config change
+    pushShiftReport();
+    const interval = setInterval(pushShiftReport, 3500);
+    return () => clearInterval(interval);
+  }, [
+    authSession.isAuthenticated,
+    authSession.environment,
+    authSession.operator?.organisationId,
+    simulationState.config.isShiftOpen,
+    simulationState.config.shiftDurationHours,
+    simulationState.config.shiftStartHour,
+    simulationState.config.simulatedDayCount,
+    simulationState.completedCount,
+    simulationState.rejectedCount,
+  ]);
+
+  // Real-time Firestore + SSE listener on Shift Summary Report (updates when admin closes shift or logs audit)
+  useEffect(() => {
+    if (!authSession.isAuthenticated) return;
+    const orgId = authSession.operator?.organisationId || 'iiests-mech';
+    const unsubscribe = apiClient.subscribeDailyShiftReportRealtime(
+      orgId,
+      (incoming) => {
+        if (!incoming) return;
+        const remoteClosed = incoming.isShiftOpen === false || incoming.shiftStatus === 'SHIFT_COMPLETED';
+        setLiveSyncedReportMeta({
+          syncedAt: incoming.lastUpdatedAt || new Date().toISOString(),
+          lastAuditAction: incoming.lastAuditAction,
+          shiftCompletedRemotely: remoteClosed,
+          remoteDayNumber: incoming.dayNumber ?? incoming.simulatedDayCount,
+        });
+      },
+      () => {
+        // ignore intermittent listener fallback
+      }
+    );
+    return () => unsubscribe();
+  }, [authSession.isAuthenticated, authSession.operator?.organisationId]);
+
+  // Auto-trigger Shift Summary Modal and flush report immediately when shift closes
   const prevIsShiftOpenRef = useRef(simulationState?.config?.isShiftOpen ?? true);
   useEffect(() => {
     if (prevIsShiftOpenRef.current && !simulationState?.config?.isShiftOpen) {
       setIsShiftSummaryOpen(true);
+      if (authSession.isAuthenticated && canPersistToProductionStore(authSession.environment, simulationState?.targetEnvironment)) {
+        const orgId = authSession.operator?.organisationId || 'iiests-mech';
+        const unified = buildUnifiedShiftReportPayload(shiftSummaryRef.current, simulationState);
+        apiClient.saveDailyShiftReport(orgId, { ...unified, lastAuditAction: 'SHIFT_CLOSED' }).catch(() => {});
+      }
     }
     prevIsShiftOpenRef.current = simulationState.config.isShiftOpen;
   }, [simulationState.config.isShiftOpen]);
@@ -566,36 +715,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Persist simulation state: PRODUCTION mode strictly updates the physical asset database.
-  // Simulation & Historical modes are isolated local sandboxes and NEVER alter the physical asset state.
-  useEffect(() => {
-    const isProduction = authSession.environment === 'PRODUCTION';
-    const timer = setTimeout(() => {
-      try {
-        const stateWithWallTime = {
-          ...simulationState,
-          _savedWallTime: Date.now(),
-        };
-
-        if (isProduction) {
-          localStorage.setItem('aerotwin_saved_simulation_full', JSON.stringify(stateWithWallTime));
-          localStorage.setItem('aerotwin_last_saved_wall_time', String(Date.now()));
-          localStorage.setItem('aerotwin_plant_config', JSON.stringify(simulationState.config));
-          if (authSession.operator?.organisationId) {
-            localStorage.setItem(`aerotwin_tenant_state_${authSession.operator.organisationId}`, JSON.stringify(stateWithWallTime));
-          }
-        } else {
-          // Sandbox isolation: store exclusively in sandbox-specific key
-          const sandboxKey = `aerotwin_sandbox_${(authSession.environment || 'simulation').toLowerCase()}`;
-          localStorage.setItem(sandboxKey, JSON.stringify(stateWithWallTime));
-        }
-      } catch {
-        // ignore storage/quota errors
-      }
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [simulationState, authSession]);
-
   // Multi-Device Production Twin Sync: keeps devices synchronized with continuous plant progression
   useEffect(() => {
     if (!authSession.isAuthenticated || authSession.environment !== 'PRODUCTION') return;
@@ -604,8 +723,8 @@ export default function App() {
     const syncInterval = setInterval(async () => {
       try {
         const remote = await apiClient.loadTenantState(orgId);
-        if (remote && remote.isRunning && !simulationState.isRunning) {
-          let updatedState = { ...remote, isRunning: true, targetEnvironment: 'PRODUCTION' };
+        if (remote && isValidProductionSnapshot(remote) && remote.isRunning && !simulationState.isRunning) {
+          let updatedState: PlantSimulationState = { ...remote, isRunning: true, targetEnvironment: 'PRODUCTION' };
           const serverSavedTime = remote._serverSavedTimestamp;
           if (serverSavedTime) {
             const elapsed = Math.max(0, (Date.now() - serverSavedTime) / 1000);
@@ -649,13 +768,14 @@ export default function App() {
             const serverState = res.state;
             if (action === 'RESET') {
               const resetConfig = serverState.config || prev.config;
-              return createInitialPlantState(resetConfig, false);
+              return { ...createInitialPlantState(resetConfig, false), targetEnvironment: 'PRODUCTION' };
             }
             if (action === 'ADVANCE_DAY') {
               let updated = advanceToNextDay(prev);
               if (serverState.config) {
                 updated = {
                   ...updated,
+                  targetEnvironment: 'PRODUCTION',
                   config: { ...updated.config, ...serverState.config },
                 };
               }
@@ -673,11 +793,9 @@ export default function App() {
           });
           setSweepToast(`✅ Server Clock Action [${action}] committed to all nodes.`);
         } else {
-          // Local fallback if offline
           applyLocalSimulationAction(action);
         }
       } else {
-        // Sandbox mode or local action
         applyLocalSimulationAction(action);
       }
     } catch (err: any) {
@@ -690,20 +808,20 @@ export default function App() {
   };
 
   const applyLocalSimulationAction = (action: 'START' | 'PAUSE' | 'RESET' | 'ADVANCE_DAY') => {
-    const isProduction = authSession.environment === 'PRODUCTION';
+    const activeEnv = authSession.environment || 'PRODUCTION';
     const orgId = authSession.operator?.organisationId || 'iiests-mech';
 
     if (action === 'START' || action === 'PAUSE') {
       const nextRunning = action === 'START';
       setSimulationState(prev => {
-        const updated = {
+        const updated: PlantSimulationState = {
           ...prev,
           isRunning: nextRunning,
-          targetEnvironment: authSession.environment || 'PRODUCTION',
+          targetEnvironment: activeEnv,
           activeOperatorName: authSession.operator?.name || 'Plant Operator',
           _savedWallTime: Date.now(),
         };
-        if (isProduction) {
+        if (canPersistToProductionStore(activeEnv, updated.targetEnvironment)) {
           try {
             localStorage.setItem(`aerotwin_tenant_state_${orgId}`, JSON.stringify(updated));
             localStorage.setItem('aerotwin_saved_simulation_full', JSON.stringify(updated));
@@ -715,31 +833,43 @@ export default function App() {
     } else if (action === 'RESET') {
       const todayStr = getTodayCalendarDateString();
       setSimulationState(prev => {
+        const startHr = prev.config.shiftStartHour ?? 8;
         const resetConfig = {
           ...prev.config,
           simulatedDate: todayStr,
           simulatedDayCount: 1,
-          simulatedSecondsOfDay: (prev.config.shiftStartHour ?? 8) * 3600,
+          simulatedSecondsOfDay: startHr * 3600,
           arrearsUnits: 0,
           trucks: {
-            rm1: { ...prev.config.trucks.rm1, unitsLeftToUnload: prev.config.dailyRmPerTruck, hasArrived: false, isUnloading: false, arrivalTimestamp: `${prev.config.shiftStartHour ?? 8}:00` },
-            rm2: { ...prev.config.trucks.rm2, unitsLeftToUnload: prev.config.dailyRmPerTruck, hasArrived: false, isUnloading: false, arrivalTimestamp: `${prev.config.shiftStartHour ?? 8}:00` },
-            rm3: { ...prev.config.trucks.rm3, unitsLeftToUnload: prev.config.dailyRmPerTruck, hasArrived: false, isUnloading: false, arrivalTimestamp: `${prev.config.shiftStartHour ?? 8}:00` },
+            rm1: { ...prev.config.trucks.rm1, unitsLeftToUnload: prev.config.dailyRmPerTruck, hasArrived: false, isUnloading: false, arrivalTimestamp: `${startHr}:00` },
+            rm2: { ...prev.config.trucks.rm2, unitsLeftToUnload: prev.config.dailyRmPerTruck, hasArrived: false, isUnloading: false, arrivalTimestamp: `${startHr}:00` },
+            rm3: { ...prev.config.trucks.rm3, unitsLeftToUnload: prev.config.dailyRmPerTruck, hasArrived: false, isUnloading: false, arrivalTimestamp: `${startHr}:00` },
           },
         };
-        const next = createInitialPlantState(resetConfig, false);
-        if (isProduction) {
+        const next: PlantSimulationState = {
+          ...createInitialPlantState(resetConfig, false),
+          targetEnvironment: activeEnv,
+        };
+        if (canPersistToProductionStore(activeEnv, next.targetEnvironment)) {
           try {
             localStorage.removeItem('aerotwin_saved_simulation_full');
             localStorage.removeItem(`aerotwin_tenant_state_${orgId}`);
+            apiClient.saveTenantState(orgId, next);
+          } catch {}
+        } else {
+          try {
+            localStorage.setItem(resolveEnvironmentStorageKey(activeEnv, orgId), JSON.stringify(next));
           } catch {}
         }
         return next;
       });
     } else if (action === 'ADVANCE_DAY') {
       setSimulationState(prev => {
-        const next = advanceToNextDay(prev);
-        if (isProduction) {
+        const next: PlantSimulationState = {
+          ...advanceToNextDay(prev),
+          targetEnvironment: activeEnv,
+        };
+        if (canPersistToProductionStore(activeEnv, next.targetEnvironment)) {
           try {
             localStorage.setItem(`aerotwin_tenant_state_${orgId}`, JSON.stringify(next));
             localStorage.setItem('aerotwin_saved_simulation_full', JSON.stringify(next));
@@ -794,11 +924,12 @@ export default function App() {
       return;
     }
 
+    const startTimeFormatted = formatHourOfDay(simulationState.config.shiftStartHour ?? 8);
     setConfirmModal({
       isOpen: true,
       action: 'RESET',
       title: 'Reset Digital Twin System',
-      description: `WARNING: Resetting will revert the digital twin to Day 1 (08:00 AM), clear active entities on conveyors, restore raw material trucks to full capacity, and clear WIP queues. This action is logged in the permanent audit trail.`,
+      description: `WARNING: Resetting will revert the digital twin to Day 1 (${startTimeFormatted}), clear active entities on conveyors, restore raw material trucks to full capacity, and clear WIP queues. This action is logged in the permanent audit trail.`,
       confirmLabel: 'Confirm Reset',
       isDestructive: true,
     });
@@ -812,6 +943,7 @@ export default function App() {
 
     const currentDay = simulationState.config.simulatedDayCount || 1;
     const nextDay = currentDay + 1;
+    const startTimeFormatted = formatHourOfDay(simulationState.config.shiftStartHour ?? 8);
 
     setConfirmModal({
       isOpen: true,
@@ -819,7 +951,7 @@ export default function App() {
       title: `Advance Plant to Day ${nextDay}`,
       description: `Advancing to Day ${nextDay} will:
 • Roll any unfinished output into tomorrow's arrears backlog
-• Reset the shift clock to 08:00 AM for Day ${nextDay}
+• Reset the shift clock to ${startTimeFormatted} for Day ${nextDay}
 • Dispatch fresh raw material infeed trucks (360 units across RM1, RM2, RM3)
 • Increment the plant calendar monotonically (Day ${currentDay} → Day ${nextDay})
 • Re-sync all connected terminals to the unified Day ${nextDay} shift.`,
@@ -956,10 +1088,12 @@ export default function App() {
   const handleSaveConfig = (partial: any) => {
     setSimulationState(prev => {
       const next = updatePlantOperationalConfig(prev, partial);
-      try {
-        localStorage.setItem('aerotwin_plant_config', JSON.stringify(next.config));
-      } catch {
-        // ignore storage errors
+      if (canPersistToProductionStore(authSession.environment, next?.targetEnvironment)) {
+        try {
+          localStorage.setItem('aerotwin_plant_config', JSON.stringify(next.config));
+        } catch {
+          // ignore storage errors
+        }
       }
       return next;
     });
@@ -972,17 +1106,16 @@ export default function App() {
   );
 
   const currentHour = (simulationState.config.simulatedSecondsOfDay / 3600) % 24;
-  const shiftStart = simulationState.config.shiftStartHour;
-  const shiftDuration = simulationState.config.shiftDurationHours;
+  const shiftStart = simulationState.config.shiftStartHour ?? 8;
+  const shiftDuration = simulationState.config.shiftDurationHours ?? 8;
   const shiftElapsedHours = Math.max(0, currentHour - shiftStart);
   const isShiftActive = shiftElapsedHours >= 0 && shiftElapsedHours < shiftDuration;
-
-  const formatShiftEndHour = (start: number, dur: number) => {
-    const end = (start + dur) % 24;
-    const ampm = end >= 12 ? 'PM' : 'AM';
-    const h12 = end % 12 || 12;
-    return `${h12.toString().padStart(2, '0')}:00 ${ampm}`;
-  };
+  const shiftStartFormatted = formatHourOfDay(shiftStart);
+  const shiftEndFormatted = formatHourOfDay(shiftStart + shiftDuration);
+  const lunchHourStart = simulationState.config.lunchBreakStartHour ?? 13.0;
+  const lunchHourEnd = lunchHourStart + (simulationState.config.lunchBreakDurationMinutes ?? 60) / 60;
+  const lunchStartFormatted = formatHourOfDay(lunchHourStart);
+  const lunchEndFormatted = formatHourOfDay(lunchHourEnd);
 
   const selectedStation = selectedStationId ? simulationState.stations[selectedStationId] : null;
 
@@ -1441,19 +1574,19 @@ export default function App() {
                   </button>
                   <button
                     onClick={handleJumpToLunch}
-                    disabled={currentHour >= (simulationState.config.lunchBreakStartHour ?? 13.0)}
+                    disabled={currentHour >= lunchHourStart}
                     className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-amber-200 border border-amber-500/30 rounded-lg text-xs font-medium transition"
-                    title="Jump to Lunch Break (1:00 PM)"
+                    title={`Jump to Lunch Break (${lunchStartFormatted})`}
                   >
-                    Jump to Lunch (1:00 PM)
+                    Jump to Lunch ({lunchStartFormatted})
                   </button>
                   <button
                     onClick={handleJumpToEndOfShift}
-                    disabled={currentHour >= (simulationState.config.shiftStartHour + simulationState.config.shiftDurationHours)}
+                    disabled={currentHour >= (shiftStart + shiftDuration)}
                     className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-indigo-200 border border-indigo-500/30 rounded-lg text-xs font-medium transition"
-                    title="Jump to Shift End (4:00 PM)"
+                    title={`Jump to Real-Time Shift End (${shiftEndFormatted})`}
                   >
-                    Jump to Shift End (4:00 PM)
+                    Jump to Shift End ({shiftEndFormatted})
                   </button>
                 </div>
               ) : (
@@ -1509,7 +1642,7 @@ export default function App() {
                     Plant Real-Time Timestamp
                   </span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800">
-                    Day {simulationState.config.simulatedDayCount} • 8:00 AM Shift Start
+                    Day {simulationState.config.simulatedDayCount} • {shiftStartFormatted} Shift Start
                   </span>
                 </div>
                 <div className="flex items-baseline gap-3 mt-0.5">
@@ -1528,14 +1661,14 @@ export default function App() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-slate-200">
-                    {simulationState.config.shiftDurationHours}h Working Shift (08:00 AM – {formatShiftEndHour(shiftStart, shiftDuration)})
+                    {shiftDuration}h Working Shift ({shiftStartFormatted} – {shiftEndFormatted})
                   </span>
                   {simulationState.config.lunchBreakEnabled &&
                   isShiftActive &&
-                  currentHour >= (simulationState.config.lunchBreakStartHour ?? 13.0) &&
-                  currentHour < (simulationState.config.lunchBreakStartHour ?? 13.0) + (simulationState.config.lunchBreakDurationMinutes ?? 60) / 60 ? (
+                  currentHour >= lunchHourStart &&
+                  currentHour < lunchHourEnd ? (
                     <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/50 flex items-center gap-1 animate-pulse">
-                      <span>☕ LUNCH BREAK (1:00 PM – 2:00 PM)</span>
+                      <span>☕ LUNCH BREAK ({lunchStartFormatted} – {lunchEndFormatted})</span>
                     </span>
                   ) : (
                     <span
@@ -1647,7 +1780,7 @@ export default function App() {
                 <button
                   onClick={handleRequestAdvanceDay}
                   className="px-3.5 py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-cyan-950/50 transition hover:scale-[1.02] active:scale-[0.98]"
-                  title="Roll unfinished units into tomorrow's arrears, resume backlog pieces from their exact positions, reset shift clock to 08:00 AM, and dispatch next truck delivery"
+                  title={`Roll unfinished units into tomorrow's arrears, resume backlog pieces from their exact positions, reset shift clock to ${shiftStartFormatted}, and dispatch next truck delivery`}
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-cyan-200" />
                   <span className="whitespace-nowrap">Advance to Next Day</span>
@@ -2294,6 +2427,8 @@ export default function App() {
         isAdmin={isAdmin}
         adminEmail={authSession.operator?.email}
         adminBadge={authSession.operator?.badgeId}
+        shiftStartHour={shiftStart}
+        shiftDurationHours={shiftDuration}
       />
 
       {/* AI Plant Diagnostics Chatbot Modal */}
@@ -2366,45 +2501,7 @@ export default function App() {
               </button>
             </div>
 
-            {/* Modal Tabs */}
-            <div className="flex bg-slate-950 border-b border-slate-800 px-6 pt-2 gap-2 text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => setAdminModalTab('proposals')}
-                className={`py-2 px-3 border-b-2 transition flex items-center gap-1.5 ${
-                  adminModalTab === 'proposals'
-                    ? 'border-cyan-400 text-cyan-300 font-bold'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>Parameter Proposals</span>
-                {changeRequests.filter(r => r.status === 'PENDING_ADMIN_APPROVAL').length > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-slate-950 font-bold">
-                    {changeRequests.filter(r => r.status === 'PENDING_ADMIN_APPROVAL').length}
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAdminModalTab('audit_trail')}
-                className={`py-2 px-3 border-b-2 transition flex items-center gap-1.5 ${
-                  adminModalTab === 'audit_trail'
-                    ? 'border-cyan-400 text-cyan-300 font-bold'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Audit Trail</span>
-              </button>
-            </div>
-
             <div className="p-5 overflow-y-auto space-y-4">
-              {adminModalTab === 'audit_trail' ? (
-                <AuditTrailView title="System Audit Trail & Parameter Log" />
-              ) : (
-                <>
               {/* 4 Designated Super-Admins Directory */}
               <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                 <div className="text-xs font-bold text-slate-300 flex items-center justify-between">
@@ -2412,7 +2509,7 @@ export default function App() {
                     <ShieldAlert className="w-4 h-4 text-cyan-400" />
                     4 Designated System Administrators
                   </span>
-                  <span className="text-[10px] font-mono text-cyan-400">Authorized: Stop/Reset/Edit/Approve</span>
+                  <span className="text-[10px] font-mono text-cyan-400">Audit Trail Available in Admin Portal</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   {DESIGNATED_ADMINS.map(admin => (
@@ -2505,8 +2602,6 @@ export default function App() {
                   </div>
                 )}
               </div>
-              </>
-              )}
             </div>
           </div>
         </div>
@@ -2516,7 +2611,15 @@ export default function App() {
       <ShiftSummaryModal
         isOpen={isShiftSummaryOpen}
         onClose={() => setIsShiftSummaryOpen(false)}
-        report={shiftSummaryReport}
+        report={{
+          ...shiftSummaryReport,
+          ...(liveSyncedReportMeta.shiftCompletedRemotely &&
+          liveSyncedReportMeta.remoteDayNumber === shiftSummaryReport.dayNumber
+            ? { shiftStatus: 'SHIFT_COMPLETED' as const }
+            : {}),
+        }}
+        isLiveSynced={Boolean(liveSyncedReportMeta.syncedAt)}
+        lastSyncedAt={liveSyncedReportMeta.syncedAt}
         onAdvanceToNextDay={() => {
           handleRequestAdvanceDay();
           setIsShiftSummaryOpen(false);

@@ -31,6 +31,7 @@ import {
   Activity,
   Edit2,
   Pencil,
+  Download,
 } from 'lucide-react';
 import {
   TwinEnvironment,
@@ -46,6 +47,8 @@ import {
 import { apiClient } from '../services/apiClient';
 import { signInWithGoogle } from '../services/firebaseClient';
 import { AuditTrailView } from './AuditTrailView';
+import { exportDailyShiftReportToPdf } from '../utils/auditPdfExport';
+import { getShiftTimingDetails } from '../utils/shiftTime';
 
 interface OperatorLoginPortalProps {
   onLogin: (operator: OperatorProfile, environment: TwinEnvironment, organisation: OrganisationRecord) => void;
@@ -242,6 +245,27 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
       setIsLoadingReport(false);
     }
   };
+
+  // Real-time Firestore + SSE subscription for Admin Portal Daily Shift Report
+  useEffect(() => {
+    if (!authenticatedAdmin) return;
+    const orgId = selectedOrgId || 'iiests-mech';
+    loadDailyShiftReport();
+    const unsubscribe = apiClient.subscribeDailyShiftReportRealtime(
+      orgId,
+      (report) => {
+        if (report) {
+          setLiveShiftReport(report);
+        }
+      },
+      () => {
+        // Fallback polling handled silently
+      }
+    );
+    return () => {
+      unsubscribe();
+    };
+  }, [authenticatedAdmin, selectedOrgId]);
 
   // Authenticated Admin Login Handler
   const handleAdminAuthSubmit = async (e: React.FormEvent) => {
@@ -1709,38 +1733,101 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
                         initialLogs={adminAuditLogs}
                         onRefresh={loadAdminAuditLogs}
                         title="Admin Governance & Asset Control Audit Trail"
+                        exportedBy={authenticatedAdmin.email}
                       />
                     </div>
                   )}
 
                   {/* SUB-TAB 3: DAILY SHIFT SUMMARY REPORT */}
-                  {adminSubTab === 'daily_report' && (
+                  {adminSubTab === 'daily_report' && (() => {
+                    const r = liveShiftReport;
+                    const dynTiming = getShiftTimingDetails(
+                      r?.shiftStartHour ?? 8,
+                      r?.shiftDurationHours ?? r?.operatingHours ?? 8
+                    );
+                    const finished = r?.finishedGoodsCount ?? r?.finishedGoodsToday ?? r?.finishedGoods ?? 0;
+                    const target = r?.targetUnits ?? r?.dailyTargetUnits ?? 360;
+                    const oee = r?.oeePct ?? r?.overallOeePercent ?? r?.overallOEE ?? 0;
+                    const avail = r?.availabilityPct ?? r?.availabilityPercent ?? 100;
+                    const perf = r?.performancePct ?? r?.performancePercent ?? 100;
+                    const arrears = r?.arrearsCount ?? r?.arrearsBacklogUnits ?? r?.arrearsBacklog ?? 0;
+                    const fpy = r?.fpyPct ?? r?.firstPassYieldPercent ?? r?.firstPassYield ?? 100;
+                    const energyKwh = r?.energyKwh ?? r?.totalEnergyConsumedKwh ?? r?.energyConsumedKwh ?? 0;
+                    const energyCost = r?.energyCostInr ?? r?.totalEnergyCostInr ?? 0;
+                    const specEnergy = r?.specificEnergyKwhPerUnit ?? (finished > 0 ? energyKwh / finished : 0);
+                    const shiftEndDisplay = r?.shiftEndTimeStr || dynTiming.shiftEndTimeStr;
+                    const shiftWindowDisplay = r?.shiftWindow || dynTiming.shiftWindowLabel;
+                    const shiftStatusStr = (r?.shiftStatus || (r?.isShiftOpen === false ? 'SHIFT_COMPLETED' : 'SHIFT_IN_PROGRESS')).replace(/_/g, ' ');
+
+                    const handleDownloadAdminShiftPdf = () => {
+                      const pdfReport: any = {
+                        dayNumber: r?.dayNumber ?? r?.simulatedDayCount ?? 1,
+                        shiftDateStr: r?.shiftDateStr ?? r?.simulatedDate ?? new Date().toISOString().split('T')[0],
+                        shiftStartHour: dynTiming.shiftStartHour,
+                        shiftDurationHours: dynTiming.shiftDurationHours,
+                        shiftStartTimeStr: r?.shiftStartTimeStr || dynTiming.shiftStartTimeStr,
+                        shiftEndTimeStr: shiftEndDisplay,
+                        shiftWindow: shiftWindowDisplay,
+                        shiftStatus: r?.shiftStatus || 'SHIFT_IN_PROGRESS',
+                        finishedGoodsToday: finished,
+                        dailyTargetUnits: target,
+                        fulfillmentPercentage: Math.round((finished / Math.max(1, target)) * 100),
+                        arrearsTodayDeficit: Math.max(0, target - finished),
+                        arrearsBacklogUnits: arrears,
+                        scrapCountToday: r?.scrapCount ?? r?.scrapCountToday ?? 0,
+                        firstPassYieldPercent: Number(fpy),
+                        overallOeePercent: Number(oee),
+                        reworksToday: r?.reworksToday || { total: 0, rm1Lathe: 0, rm2Milling: 0, rm3Shaping: 0, reworkCycleTimeMinutes: 3 },
+                        scrapsToday: r?.scrapsToday || { total: r?.scrapCount ?? 0, rm1Lathe: 0, rm2Milling: 0, rm3Shaping: 0, scrapCostInr: (r?.scrapCount ?? 0) * 1250 },
+                        totalEnergyConsumedKwh: Number(energyKwh),
+                        totalEnergyCostInr: Number(energyCost),
+                        solarOffsetPercent: r?.solarOffsetPercent ?? 0,
+                        totalFleetRulReductionHours: r?.totalFleetRulReductionHours ?? 0,
+                        equipmentSummaries: r?.equipmentSummaries || [],
+                        criticalEquipmentList: r?.criticalEquipmentList || [],
+                      };
+                      exportDailyShiftReportToPdf(pdfReport);
+                    };
+
+                    return (
                     <div className="space-y-4 pt-1 animate-fadeIn">
-                      <div className="flex items-center justify-between text-xs border-b border-slate-800 pb-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs border-b border-slate-800 pb-2">
                         <div className="flex items-center gap-2">
                           <ClipboardList className="w-4 h-4 text-emerald-400" />
                           <div>
-                            <span className="font-bold text-slate-100 block">Plant Operational Shift Report</span>
-                            <span className="text-[10px] text-slate-400">
-                              {liveShiftReport?.shiftName || 'Shift 1'} • {liveShiftReport?.operatingHours || 8.0} Operating Hours • Day {liveShiftReport?.dayNumber || 1}
+                            <div className="font-bold text-slate-100 flex items-center gap-2">
+                              <span>Production Physical Asset Daily Shift Report</span>
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-700 text-emerald-300 text-[9px] font-mono">
+                                LIVE SYNC ACTIVE
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 block">
+                              {r?.shiftName || dynTiming.shiftNameLabel} • Day {r?.dayNumber || r?.simulatedDayCount || 1} ({r?.shiftDateStr || r?.simulatedDate || 'Today'}) • Shift End: <strong className="text-cyan-300 font-mono">{shiftEndDisplay}</strong> • Status: <strong className="text-amber-300">{shiftStatusStr}</strong>
                             </span>
+                            {r?.lastAuditAction && (
+                              <span className="text-[9px] text-cyan-400 font-mono block mt-0.5">
+                                Last Sync Event: {r.lastAuditAction} {r.lastAuditBy ? `by ${r.lastAuditBy}` : ''} {r.lastUpdatedAt ? `@ ${new Date(r.lastUpdatedAt).toLocaleTimeString()}` : ''}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <button
+                            type="button"
                             onClick={loadDailyShiftReport}
                             disabled={isLoadingReport}
                             className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs flex items-center gap-1.5 border border-slate-700 transition"
                           >
                             <RefreshCw className={`w-3.5 h-3.5 ${isLoadingReport ? 'animate-spin' : ''}`} />
-                            <span>Sync Realtime</span>
+                            <span>Sync Now</span>
                           </button>
                           <button
-                            onClick={() => window.print()}
-                            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs flex items-center gap-1.5 border border-slate-700 transition"
+                            type="button"
+                            onClick={handleDownloadAdminShiftPdf}
+                            className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-bold flex items-center gap-1.5 shadow transition"
                           >
-                            <Printer className="w-3.5 h-3.5" />
-                            <span>Print Report</span>
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Download PDF</span>
                           </button>
                         </div>
                       </div>
@@ -1750,38 +1837,38 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
                         <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-0.5">
                           <span className="text-[10px] text-slate-400 block">Output Target / Finished</span>
                           <span className="font-bold text-white text-sm font-mono">
-                            {liveShiftReport?.finishedGoodsCount !== undefined
-                              ? `${liveShiftReport.finishedGoodsCount} / ${liveShiftReport.targetUnits || 360} Units`
-                              : '360 Units'}
+                            {`${finished} / ${target} Units`}
                           </span>
                           <span className="text-[9px] text-cyan-400 block">
-                            {liveShiftReport ? `${liveShiftReport.trucksDispatched || 0} trucks dispatched` : '120 sets / 3 trucks'}
+                            {`${r?.trucksDispatched ?? 0} trucks arrived • End: ${shiftEndDisplay}`}
                           </span>
                         </div>
                         <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-0.5">
                           <span className="text-[10px] text-slate-400 block">Overall Plant OEE</span>
                           <span className="font-bold text-emerald-400 text-sm font-mono">
-                            {liveShiftReport?.oeePct !== undefined ? `${liveShiftReport.oeePct}%` : '88.5%'}
+                            {`${Number(oee).toFixed(1)}%`}
                           </span>
                           <span className="text-[9px] text-emerald-400 block">
-                            {liveShiftReport ? `Avail: ${liveShiftReport.availabilityPct || 92}% • Perf: ${liveShiftReport.performancePct || 96}%` : 'World Class Standard'}
+                            {`Avail: ${Number(avail).toFixed(1)}% • Perf: ${Number(perf).toFixed(1)}%`}
                           </span>
                         </div>
                         <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-0.5">
                           <span className="text-[10px] text-slate-400 block">Backlog / Arrears</span>
                           <span className="font-bold text-amber-400 text-sm font-mono">
-                            {liveShiftReport?.arrearsCount !== undefined ? `${liveShiftReport.arrearsCount} Units` : '0 Units'}
+                            {`${arrears} Units`}
                           </span>
                           <span className="text-[9px] text-slate-500 block">
-                            {liveShiftReport?.arrearsCount ? 'Delivery backlog carries to next day' : 'Zero delivery backlog'}
+                            {arrears > 0 ? 'Delivery backlog carries to next day' : 'Zero delivery backlog'}
                           </span>
                         </div>
                         <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-0.5">
                           <span className="text-[10px] text-slate-400 block">First Pass Yield</span>
                           <span className="font-bold text-cyan-400 text-sm font-mono">
-                            {liveShiftReport?.fpyPct !== undefined ? `${liveShiftReport.fpyPct}%` : '98.2%'}
+                            {`${Number(fpy).toFixed(1)}%`}
                           </span>
-                          <span className="text-[9px] text-slate-400 block">QC Stage 1, 2, 3</span>
+                          <span className="text-[9px] text-slate-400 block">
+                            {`Scrap: ${r?.scrapCount ?? r?.scrapCountToday ?? 0} • Rework: ${r?.reworksToday?.total ?? 0}`}
+                          </span>
                         </div>
                       </div>
 
@@ -1795,35 +1882,43 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
                             <div>
                               <span className="font-semibold text-slate-200 block">CNC Lathe (RM1 Billet)</span>
                               <span className="text-[10px] text-slate-400">
-                                Cycle: 360s • ISO 3685 Flank Wear: {liveShiftReport?.subsystemWear?.lathe !== undefined ? `${liveShiftReport.subsystemWear.lathe}mm` : '0.12mm'}
+                                ISO 3685 Flank Wear: {r?.subsystemWear?.lathe !== undefined ? `${Number(r.subsystemWear.lathe).toFixed(3)}mm` : '0.040mm'}
                               </span>
                             </div>
-                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 font-mono">HEALTHY</span>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 font-mono">
+                              {r?.subsystemStatuses?.lathe || 'NOMINAL'}
+                            </span>
                           </div>
                           <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
                             <div>
                               <span className="font-semibold text-slate-200 block">CNC Milling (RM2 Casting)</span>
                               <span className="text-[10px] text-slate-400">
-                                Cycle: 240s • ISO 3685 Flank Wear: {liveShiftReport?.subsystemWear?.mill !== undefined ? `${liveShiftReport.subsystemWear.mill}mm` : '0.08mm'}
+                                ISO 3685 Flank Wear: {r?.subsystemWear?.mill !== undefined ? `${Number(r.subsystemWear.mill).toFixed(3)}mm` : '0.040mm'}
                               </span>
                             </div>
-                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 font-mono">HEALTHY</span>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 font-mono">
+                              {r?.subsystemStatuses?.mill || 'NOMINAL'}
+                            </span>
                           </div>
                           <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
                             <div>
                               <span className="font-semibold text-slate-200 block">Gear Shaping (RM3 Plate)</span>
                               <span className="text-[10px] text-slate-400">
-                                Cycle: 210s • ISO 3685 Flank Wear: {liveShiftReport?.subsystemWear?.shaper !== undefined ? `${liveShiftReport.subsystemWear.shaper}mm` : '0.06mm'}
+                                ISO 3685 Flank Wear: {r?.subsystemWear?.shaper !== undefined ? `${Number(r.subsystemWear.shaper).toFixed(3)}mm` : '0.040mm'}
                               </span>
                             </div>
-                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 font-mono">HEALTHY</span>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 font-mono">
+                              {r?.subsystemStatuses?.shaper || 'NOMINAL'}
+                            </span>
                           </div>
                           <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
                             <div>
                               <span className="font-semibold text-slate-200 block">QC Subsystem & Inspection</span>
                               <span className="text-[10px] text-slate-400">Check I → Check II → Rework → Check III</span>
                             </div>
-                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 font-mono">INSPECTING</span>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 font-mono">
+                              {r?.subsystemStatuses?.qc || 'INSPECTING'}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -1836,15 +1931,16 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
                             Industrial Energy & Tariffs (Indian Standards)
                           </span>
                           <span className="font-mono text-cyan-300 text-xs font-bold">
-                            ₹{liveShiftReport?.energyCostInr ? Number(liveShiftReport.energyCostInr).toFixed(2) : '2,283.20'} Est. Shift Cost
+                            ₹{Number(energyCost).toFixed(2)} Est. Shift Cost
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-400">
-                          Total Energy Consumption: <strong className="text-white">{liveShiftReport?.energyKwh || '285.4'} kWh</strong> • Specific Energy: <strong className="text-white">{liveShiftReport?.specificEnergyKwhPerUnit || '0.79'} kWh/unit</strong> • Power Factor: <strong className="text-white">0.96 (Optimal)</strong>
+                          Total Energy Consumption: <strong className="text-white">{Number(energyKwh).toFixed(1)} kWh</strong> • Specific Energy: <strong className="text-white">{Number(specEnergy).toFixed(2)} kWh/unit</strong> • Power Factor: <strong className="text-white">{r?.powerFactor ?? 0.96}</strong>
                         </p>
                       </div>
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
               )}
             </div>

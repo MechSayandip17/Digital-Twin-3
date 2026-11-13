@@ -207,9 +207,32 @@ export function subscribeTenantSimulationState(
 }
 
 /**
- * Asynchronously syncs tenant digital twin state to Firestore Cloud
+ * Recursively strips undefined values so Firestore setDoc never rejects with unsupported undefined values
+ */
+function sanitizeFirestorePayload<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeFirestorePayload) as unknown as T;
+  }
+  if (typeof obj === 'object') {
+    const cleaned: Record<string, any> = {};
+    for (const [k, v] of Object.entries(obj as Record<string, any>)) {
+      if (v !== undefined) {
+        cleaned[k] = sanitizeFirestorePayload(v);
+      }
+    }
+    return cleaned as T;
+  }
+  return obj;
+}
+
+/**
+ * Asynchronously syncs tenant digital twin state to Firestore Cloud (PRODUCTION ONLY)
  */
 export async function syncTenantStateToFirestore(orgId: string, state: any): Promise<boolean> {
+  if (state?.targetEnvironment && state.targetEnvironment !== 'PRODUCTION') {
+    return false;
+  }
   const docPath = `tenants/${orgId}/simulation_state/current`;
   try {
     const docRef = doc(db, 'tenants', orgId, 'simulation_state', 'current');
@@ -217,17 +240,18 @@ export async function syncTenantStateToFirestore(orgId: string, state: any): Pro
       docRef,
       {
         orgId,
-        targetEnvironment: state.targetEnvironment || 'PRODUCTION',
+        targetEnvironment: 'PRODUCTION',
         isRunning: Boolean(state.isRunning),
         simulatedSeconds: state.timeSeconds ?? state.simulatedSeconds ?? 0,
         activeOperatorName: state.activeOperatorName || 'Plant Operator',
         lastSavedTimestamp: Date.now(),
         lastSavedClock: new Date().toISOString(),
-        completedCount: state.finishedGoods || state.metrics?.completedUnitsToday || 0,
-        rejectedCount: state.scrapCountToday || state.metrics?.scrapCountToday || 0,
-        activeStationsCount: Array.isArray(state.stations)
-          ? state.stations.filter((s: any) => s.status === 'PROCESSING').length
-          : 0,
+        completedCount: state.completedCount || state.finishedGoods || 0,
+        rejectedCount: state.rejectedCount || state.scrapCountToday || 0,
+        activeStationsCount:
+          state.stations && typeof state.stations === 'object'
+            ? Object.values(state.stations).filter((s: any) => s?.status === 'PROCESSING').length
+            : 0,
         updatedAt: serverTimestamp(),
       },
       { merge: true }
@@ -235,6 +259,63 @@ export async function syncTenantStateToFirestore(orgId: string, state: any): Pro
     return true;
   } catch (error) {
     console.warn('Direct Firestore client sync deferred, server proxy active:', error);
+    return false;
+  }
+}
+
+/**
+ * Real-time Firestore listener for Daily Shift Summary Report
+ */
+export function subscribeDailyShiftReport(
+  orgId: string,
+  onData: (report: any) => void,
+  onError?: (err: Error) => void
+): () => void {
+  const safeOrgId = orgId || 'iiests-mech';
+  const docPath = `tenants/${safeOrgId}/daily_shift_reports/latest`;
+  try {
+    const docRef = doc(db, 'tenants', safeOrgId, 'daily_shift_reports', 'latest');
+    const unsubscribe = onSnapshot(
+      docRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          onData(snapshot.data());
+        }
+      },
+      (error) => {
+        try {
+          handleFirestoreError(error, OperationType.GET, docPath);
+        } catch (wrapped) {
+          if (onError && wrapped instanceof Error) onError(wrapped);
+        }
+      }
+    );
+    return unsubscribe;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, docPath);
+  }
+}
+
+/**
+ * Syncs Daily Shift Summary Report to Firestore Cloud (PRODUCTION ONLY)
+ */
+export async function syncDailyShiftReportToFirestore(orgId: string, report: any): Promise<boolean> {
+  if (!report || (report.sourceEnvironment && report.sourceEnvironment !== 'PRODUCTION')) {
+    return false;
+  }
+  const safeOrgId = orgId || 'iiests-mech';
+  try {
+    const docRef = doc(db, 'tenants', safeOrgId, 'daily_shift_reports', 'latest');
+    const sanitized = sanitizeFirestorePayload({
+      ...report,
+      orgId: safeOrgId,
+      sourceEnvironment: 'PRODUCTION',
+      updatedAt: serverTimestamp(),
+    });
+    await setDoc(docRef, sanitized, { merge: true });
+    return true;
+  } catch (error) {
+    console.warn('Direct Firestore shift report sync deferred, server proxy active:', error);
     return false;
   }
 }

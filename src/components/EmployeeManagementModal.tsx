@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Employee, EmployeeRole, EmployeeShift, EmployeeStatus } from '../types/employee';
 import { apiClient } from '../services/apiClient';
+import { formatHourOfDay24 } from '../utils/shiftTime';
 
 interface EmployeeManagementModalProps {
   isOpen: boolean;
@@ -23,6 +24,8 @@ interface EmployeeManagementModalProps {
   isAdmin?: boolean;
   adminEmail?: string;
   adminBadge?: string;
+  shiftStartHour?: number;
+  shiftDurationHours?: number;
 }
 
 const ROLE_LABELS: Record<EmployeeRole, string> = {
@@ -34,12 +37,6 @@ const ROLE_LABELS: Record<EmployeeRole, string> = {
   LINE_SUPERVISOR: 'Production Line Supervisor',
 };
 
-const SHIFT_LABELS: Record<EmployeeShift, string> = {
-  SHIFT_1_DAY: 'Shift 1: Morning (08:00 - 16:00)',
-  SHIFT_2_SWING: 'Shift 2: Swing (16:00 - 00:00)',
-  SHIFT_3_NIGHT: 'Shift 3: Night (00:00 - 08:00)',
-};
-
 export const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = ({
   isOpen,
   onClose,
@@ -48,7 +45,16 @@ export const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = (
   isAdmin = false,
   adminEmail,
   adminBadge,
+  shiftStartHour = 8,
+  shiftDurationHours = 8,
 }) => {
+  const shift1End = shiftStartHour + shiftDurationHours;
+  const shift2End = shift1End + 8;
+  const SHIFT_LABELS: Record<EmployeeShift, string> = {
+    SHIFT_1_DAY: `Shift 1: Primary (${formatHourOfDay24(shiftStartHour)} - ${formatHourOfDay24(shift1End)})`,
+    SHIFT_2_SWING: `Shift 2: Swing (${formatHourOfDay24(shift1End)} - ${formatHourOfDay24(shift2End)})`,
+    SHIFT_3_NIGHT: `Shift 3: Night (${formatHourOfDay24(shift2End)} - ${formatHourOfDay24(shiftStartHour)})`,
+  };
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [filterRole, setFilterRole] = useState<string>('ALL');

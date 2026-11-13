@@ -15,15 +15,19 @@ import {
   UserCheck,
   FileCheck,
   ArrowRight,
+  Download,
 } from 'lucide-react';
 import { AdminAuditLog } from '../types/auth';
 import { apiClient } from '../services/apiClient';
+import { subscribeAdminAuditLogs } from '../services/firebaseClient';
+import { exportAuditLogsToPdf } from '../utils/auditPdfExport';
 
 interface AuditTrailViewProps {
   initialLogs?: AdminAuditLog[];
   onRefresh?: () => void;
   title?: string;
   className?: string;
+  exportedBy?: string;
 }
 
 export const AuditTrailView: React.FC<AuditTrailViewProps> = ({
@@ -31,6 +35,7 @@ export const AuditTrailView: React.FC<AuditTrailViewProps> = ({
   onRefresh,
   title = 'System Audit Trail & Governance Log',
   className = '',
+  exportedBy,
 }) => {
   const [logs, setLogs] = useState<AdminAuditLog[]>(initialLogs || []);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,6 +62,36 @@ export const AuditTrailView: React.FC<AuditTrailViewProps> = ({
       fetchLogs();
     }
   }, [initialLogs]);
+
+  useEffect(() => {
+    let unsub: (() => void) | null = null;
+    try {
+      unsub = subscribeAdminAuditLogs(
+        (cloudLogs) => {
+          if (Array.isArray(cloudLogs) && cloudLogs.length > 0) {
+            setLogs((prev) => {
+              const map = new Map<string, AdminAuditLog>();
+              for (const l of prev) map.set(l.id, l);
+              for (const l of cloudLogs) map.set(l.id, l);
+              return Array.from(map.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            });
+          }
+        },
+        () => {
+          // Graceful fallback to server API refresh if Firestore read is unavailable
+        }
+      );
+    } catch {
+      // Ignore subscription init errors
+    }
+    return () => {
+      if (unsub) {
+        try {
+          unsub();
+        } catch {}
+      }
+    };
+  }, []);
 
   const getActionBadge = (action: string) => {
     switch (action) {
@@ -186,6 +221,25 @@ export const AuditTrailView: React.FC<AuditTrailViewProps> = ({
           </select>
 
           <button
+            type="button"
+            onClick={() =>
+              exportAuditLogsToPdf(filteredLogs, {
+                title,
+                filterLabel: actionFilter,
+                searchQuery: searchTerm,
+                exportedBy,
+              })
+            }
+            disabled={filteredLogs.length === 0}
+            className="px-2.5 py-1.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 disabled:opacity-40 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow transition"
+            title="Download Filtered Audit Log as PDF"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Download PDF</span>
+          </button>
+
+          <button
+            type="button"
             onClick={fetchLogs}
             disabled={isLoading}
             className="p-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 rounded-lg border border-slate-700 transition"

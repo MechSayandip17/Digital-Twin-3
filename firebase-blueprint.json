@@ -116,6 +116,28 @@
         "hireDate": { "type": "string" }
       },
       "required": ["id", "employeeId", "name", "role", "hourlyWage", "status"]
+    },
+    "DailyShiftReport": {
+      "title": "DailyShiftReport",
+      "description": "Real-time daily shift summary report synced from Production Live Physical Asset",
+      "type": "object",
+      "properties": {
+        "reportId": { "type": "string" },
+        "dayNumber": { "type": "number" },
+        "shiftDateStr": { "type": "string" },
+        "shiftStartTimeStr": { "type": "string" },
+        "shiftEndTimeStr": { "type": "string" },
+        "shiftWindow": { "type": "string" },
+        "shiftStatus": { "type": "string", "enum": ["SHIFT_IN_PROGRESS", "SHIFT_COMPLETED"] },
+        "finishedGoodsToday": { "type": "number" },
+        "dailyTargetUnits": { "type": "number" },
+        "overallOeePercent": { "type": "number" },
+        "firstPassYieldPercent": { "type": "number" },
+        "totalEnergyConsumedKwh": { "type": "number" },
+        "totalEnergyCostInr": { "type": "number" },
+        "lastUpdatedAt": { "type": "string" }
+      },
+      "required": ["reportId", "dayNumber", "shiftWindow", "shiftStatus"]
     }
   },
   "firestore": {
@@ -134,6 +156,10 @@
     "/tenants/{orgId}/simulation_state/{stateId}": {
       "schema": { "$ref": "#/entities/TenantSimulationState" },
       "description": "Production digital twin simulation state for each tenant"
+    },
+    "/tenants/{orgId}/daily_shift_reports/{reportId}": {
+      "schema": { "$ref": "#/entities/DailyShiftReport" },
+      "description": "Real-time synced Daily Shift Summary Report for each tenant"
     },
     "/parameter_change_requests/{requestId}": {
       "schema": { "$ref": "#/entities/ParameterChangeRequest" },

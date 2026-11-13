@@ -20,294 +20,16 @@ import {
   RefreshCw,
   Trash2,
 } from 'lucide-react';
-import { ShiftSummaryReport, formatIndianCurrency, formatIndianNumber } from '../utils/shiftSummaryReport';
+import { ShiftSummaryReport, formatIndianCurrency } from '../utils/shiftSummaryReport';
+import { exportDailyShiftReportToPdf } from '../utils/auditPdfExport';
 
 interface ShiftSummaryModalProps {
   isOpen: boolean;
   onClose: () => void;
   report: ShiftSummaryReport;
   onAdvanceToNextDay?: () => void;
-}
-
-/**
- * Triggers a pristine, professional printable window ready for instant Save as PDF or physical print.
- */
-function exportReportToPdf(report: ShiftSummaryReport) {
-  const printWindow = window.open('', '_blank', 'width=1000,height=1100');
-  if (!printWindow) {
-    window.print();
-    return;
-  }
-
-  const faultRowsHtml = report.faultIncidentsToday && report.faultIncidentsToday.length > 0
-    ? report.faultIncidentsToday.map(f => `
-      <tr>
-        <td style="font-family: monospace; font-weight: bold; color: #0284c7;">${f.timestamp}</td>
-        <td><strong>${f.stationName}</strong> (${f.line})</td>
-        <td>${f.faultType.replace(/_/g, ' ')}</td>
-        <td><span class="status-pill status-${f.severity.toLowerCase()}">${f.severity}</span></td>
-        <td><span class="status-pill ${f.status === 'RESOLVED' ? 'status-healthy' : 'status-alarm'}">${f.status}</span></td>
-        <td>${f.actionTaken}</td>
-      </tr>
-    `).join('')
-    : '<tr><td colspan="6" style="text-align: center; color: #166534; padding: 10px;">Zero machine faults or breakdowns recorded during this shift. All systems operated within nominal limits.</td></tr>';
-
-  const equipRowsHtml = report.equipmentSummaries.map(st => `
-    <tr>
-      <td><strong>${st.name}</strong></td>
-      <td>${st.line}</td>
-      <td style="font-family: monospace;">${st.cumulativeRunHours}h</td>
-      <td style="font-family: monospace; color: #dc2626;">-${st.rulReductionTodayHours}h</td>
-      <td style="font-family: monospace; font-weight: bold; color: ${st.remainingUsefulLifeHours < 24 ? '#dc2626' : '#166534'};">${st.remainingUsefulLifeHours} hrs</td>
-      <td>${st.predictedFailureClass}</td>
-      <td><span class="status-pill ${st.healthStatus === 'CRITICAL_ALARM' ? 'status-alarm' : st.healthStatus === 'ADVISORY' ? 'status-advisory' : 'status-healthy'}">${st.healthStatus}</span></td>
-    </tr>
-  `).join('');
-
-  const directivesHtml = report.prescriptiveRecommendations.map((rec, i) => `
-    <li style="margin-bottom: 6px;"><strong style="color: #0284c7;">[${i + 1}]</strong> ${rec}</li>
-  `).join('');
-
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>DigiTwin Shift Summary - Day ${report.dayNumber} (${report.shiftDateStr})</title>
-  <style>
-    @page { size: A4; margin: 12mm 14mm; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; margin: 0; padding: 20px; font-size: 11px; line-height: 1.45; }
-    .header { border-bottom: 2.5px solid #0284c7; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; }
-    .title { font-size: 20px; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.5px; }
-    .subtitle { font-size: 11px; color: #64748b; margin-top: 3px; }
-    .badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-weight: 700; font-size: 10px; text-transform: uppercase; border: 1px solid #0284c7; color: #0284c7; background: #f0f9ff; }
-    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
-    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 14px; }
-    .card { border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; background: #f8fafc; }
-    .card-title { font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; }
-    .card-value { font-size: 20px; font-weight: 800; color: #0f172a; font-family: monospace; }
-    .card-sub { font-size: 9.5px; color: #475569; margin-top: 3px; }
-    .section { margin-bottom: 14px; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; page-break-inside: avoid; }
-    .section-header { background: #f1f5f9; padding: 7px 12px; font-weight: 700; font-size: 11px; color: #1e293b; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-    .section-body { padding: 10px 12px; }
-    table { width: 100%; border-collapse: collapse; font-size: 10px; }
-    th { background: #f8fafc; text-align: left; padding: 6px 8px; border-bottom: 1.5px solid #cbd5e1; color: #475569; font-weight: 700; }
-    td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; }
-    tr:nth-child(even) td { background: #fcfcfd; }
-    .status-pill { display: inline-block; padding: 1.5px 6px; border-radius: 3px; font-size: 9px; font-weight: 700; text-transform: uppercase; }
-    .status-healthy { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
-    .status-advisory { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-    .status-alarm { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
-    .status-critical { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
-    .status-high { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; }
-    .status-medium { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
-    .status-low { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
-    .footer { margin-top: 18px; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; display: flex; justify-content: space-between; }
-    ul { margin: 0; padding-left: 18px; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div>
-      <h1 class="title">AEROTWIN MANUFACTURING DIGITAL TWIN</h1>
-      <div class="subtitle">Official Daily Shift Summary, Quality & Predictive Maintenance Report</div>
-      <div class="subtitle"><strong>Day ${report.dayNumber}</strong> • Date: <strong>${report.shiftDateStr}</strong> • Shift Window: <strong>${report.shiftWindow}</strong></div>
-    </div>
-    <div style="text-align: right;">
-      <span class="badge">${report.shiftStatus.replace(/_/g, ' ')}</span>
-      <div style="font-size: 9px; color: #64748b; margin-top: 4px;">ISO 10816 • CEA Energy Standards</div>
-      <div style="font-size: 9px; color: #64748b;">Indian Aerospace Quality Matrix</div>
-    </div>
-  </div>
-
-  <!-- Primary KPIs -->
-  <div class="grid-4">
-    <div class="card">
-      <div class="card-title">Finished Goods Output</div>
-      <div class="card-value" style="color: #0284c7;">${report.finishedGoodsToday} <span style="font-size: 11px; color: #64748b;">/ ${report.dailyTargetUnits} u</span></div>
-      <div class="card-sub">Fulfillment: <strong>${report.fulfillmentPercentage}%</strong> • FPY: ${report.firstPassYieldPercent}%</div>
-    </div>
-    <div class="card">
-      <div class="card-title">Arrears Backlog Carried</div>
-      <div class="card-value" style="color: ${report.arrearsBacklogUnits > 0 ? '#d97706' : '#166534'};">${report.arrearsBacklogUnits} <span style="font-size: 11px; color: #64748b;">units</span></div>
-      <div class="card-sub">Today's Deficit: <strong>${report.arrearsTodayDeficit > 0 ? `+${report.arrearsTodayDeficit} u` : '0 u'}</strong></div>
-    </div>
-    <div class="card">
-      <div class="card-title">Total Energy Consumed</div>
-      <div class="card-value" style="color: #d97706;">${report.totalEnergyConsumedKwh.toFixed(0)} <span style="font-size: 11px; color: #64748b;">kWh</span></div>
-      <div class="card-sub">Cost: <strong>${formatIndianCurrency(report.totalEnergyCostInr)}</strong> • Solar: ${report.solarOffsetPercent}%</div>
-    </div>
-    <div class="card">
-      <div class="card-title">Machinery Health Status</div>
-      <div class="card-value" style="color: ${report.criticalEquipmentList.length > 0 ? '#dc2626' : '#166534'};">${report.criticalEquipmentList.length > 0 ? `${report.criticalEquipmentList.length} ALARM` : 'NOMINAL'}</div>
-      <div class="card-sub">Cumulative RUL Lost: <strong>-${report.totalFleetRulReductionHours.toFixed(1)}h</strong></div>
-    </div>
-  </div>
-
-  <!-- Section: QC Defects, Per-Day Reworks & Scraps -->
-  <div class="section">
-    <div class="section-header">
-      <span>DAILY QUALITY CONTROL DEFECTS, REWORKS & SCRAP LOSSES</span>
-      <span style="font-family: monospace; font-size: 10px;">Total Write-off: ${formatIndianCurrency(report.scrapsToday.scrapCostInr)}</span>
-    </div>
-    <div class="section-body">
-      <div class="grid-2" style="margin-bottom: 0;">
-        <div style="border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px;">
-          <strong style="color: #d97706;">🔄 Daily Reworks Total: ${report.reworksToday.total} units</strong>
-          <div style="margin-top: 4px; font-size: 10px; color: #475569;">
-            <div>• Line RM1 (CNC Lathe): <strong>${report.reworksToday.rm1Lathe} units</strong></div>
-            <div>• Line RM2 (CNC Milling): <strong>${report.reworksToday.rm2Milling} units</strong></div>
-            <div>• Line RM3 (CNC Shaping): <strong>${report.reworksToday.rm3Shaping} units</strong></div>
-            <div style="margin-top: 2px; color: #64748b;">Cycle time penalty incurred: ~${report.reworksToday.reworkCycleTimeMinutes} minutes</div>
-          </div>
-        </div>
-        <div style="border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px;">
-          <strong style="color: #dc2626;">🗑️ Daily Scraps Total: ${report.scrapsToday.total} units</strong>
-          <div style="margin-top: 4px; font-size: 10px; color: #475569;">
-            <div>• Line RM1 (Billet rejects): <strong>${report.scrapsToday.rm1Lathe} units</strong></div>
-            <div>• Line RM2 (Casting flaws): <strong>${report.scrapsToday.rm2Milling} units</strong></div>
-            <div>• Line RM3 (Plate cracks): <strong>${report.scrapsToday.rm3Shaping} units</strong></div>
-            <div style="margin-top: 2px; color: #dc2626; font-weight: bold;">Material scrap cost loss: ${formatIndianCurrency(report.scrapsToday.scrapCostInr)}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Section: Plant Entity Throughput by Stage & Type -->
-  <div class="section">
-    <div class="section-header">
-      <span>PER-DAY ENTITY THROUGHPUT BY MATERIAL TYPE & MANUFACTURING STAGE</span>
-      <span style="font-family: monospace; font-size: 10px;">Full Inflow-to-Dispatch Flow</span>
-    </div>
-    <div class="section-body" style="padding: 0;">
-      <table>
-        <thead>
-          <tr>
-            <th>Material Line / Item Type</th>
-            <th>Truck Unloaded</th>
-            <th>CNC Machined</th>
-            <th>QC Passed</th>
-            <th>Downstream Transition</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>RM1 Titanium Bar Billet</strong></td>
-            <td style="font-family: monospace;">${report.entityThroughputByType.rm1BilletUnloaded}</td>
-            <td style="font-family: monospace;">${report.entityThroughputByType.rm1BilletMachined}</td>
-            <td style="font-family: monospace; color: #166534; font-weight: bold;">${report.entityThroughputByType.rm1BilletQcPassed}</td>
-            <td>Staged into Converge Joiner</td>
-          </tr>
-          <tr>
-            <td><strong>RM2 Aluminum Casting Housing</strong></td>
-            <td style="font-family: monospace;">${report.entityThroughputByType.rm2CastingUnloaded}</td>
-            <td style="font-family: monospace;">${report.entityThroughputByType.rm2CastingMachined}</td>
-            <td style="font-family: monospace; color: #166534; font-weight: bold;">${report.entityThroughputByType.rm2CastingQcPassed}</td>
-            <td>Staged into Converge Joiner</td>
-          </tr>
-          <tr>
-            <td><strong>RM3 Steel Gear Blank Plate</strong></td>
-            <td style="font-family: monospace;">${report.entityThroughputByType.rm3PlateUnloaded}</td>
-            <td style="font-family: monospace;">${report.entityThroughputByType.rm3PlateMachined}</td>
-            <td style="font-family: monospace; color: #166534; font-weight: bold;">${report.entityThroughputByType.rm3PlateQcPassed}</td>
-            <td>Staged into Converge Joiner</td>
-          </tr>
-          <tr style="background: #f0fdf4;">
-            <td><strong>Converged 3-Part Assemblies</strong></td>
-            <td colspan="2">Merged Sets: <strong>${report.entityThroughputByType.mergedSetsCount}</strong></td>
-            <td colspan="2">Final Assembled Mechanisms: <strong>${report.entityThroughputByType.assembledUnitsCount}</strong></td>
-          </tr>
-          <tr style="background: #f0f9ff;">
-            <td><strong>Packaging & Shipping Dispatch</strong></td>
-            <td colspan="2">Packaged Finished Boxes: <strong>${report.entityThroughputByType.packagedGoodsCount}</strong></td>
-            <td colspan="2">Dispatched to Logistics Hub: <strong style="color: #0284c7;">${report.entityThroughputByType.dispatchedToWarehouseCount}</strong></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Section: Machine Faults & Breakdowns Logged Today -->
-  <div class="section">
-    <div class="section-header">
-      <span>DAILY MACHINE FAULTS, DEGRADATIONS & INCIDENTS (WITH TIMESTAMPS)</span>
-      <span style="font-family: monospace; font-size: 10px;">${report.faultIncidentsToday ? report.faultIncidentsToday.length : 0} Events Logged</span>
-    </div>
-    <div class="section-body" style="padding: 0;">
-      <table>
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Machine / Station</th>
-            <th>Incident Class</th>
-            <th>Severity</th>
-            <th>Status</th>
-            <th>Maintenance Resolution</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${faultRowsHtml}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Section: Equipment Health & Weibull RUL Matrix -->
-  <div class="section">
-    <div class="section-header">
-      <span>EQUIPMENT HEALTH & WEIBULL REMAINING USEFUL LIFE (RUL) MATRIX (16 STATIONS)</span>
-      <span style="font-family: monospace; font-size: 10px;">Total Fleet: 16 Units</span>
-    </div>
-    <div class="section-body" style="padding: 0;">
-      <table>
-        <thead>
-          <tr>
-            <th>Station / Machine</th>
-            <th>Line</th>
-            <th>Operating Hours</th>
-            <th>Shift RUL Loss</th>
-            <th>Remaining RUL</th>
-            <th>Diagnostic Class</th>
-            <th>Health State</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${equipRowsHtml}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Section: Prescriptive Directives -->
-  <div class="section">
-    <div class="section-header">
-      <span>PRESCRIPTIVE ENGINEERING DIRECTIVES FOR NEXT WORKING SHIFT</span>
-    </div>
-    <div class="section-body">
-      <ul>
-        ${directivesHtml}
-      </ul>
-    </div>
-  </div>
-
-  <div class="footer">
-    <span>DigiTwin Discrete Event Simulation Digital Twin • Certified under Indian Aerospace Standards</span>
-    <span>Generated: ${report.shiftDateStr} • Confidential Internal Plant Document</span>
-  </div>
-
-  <script>
-    window.onload = function() {
-      setTimeout(function() {
-        window.print();
-      }, 500);
-    };
-  </script>
-</body>
-</html>`;
-
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
+  isLiveSynced?: boolean;
+  lastSyncedAt?: string;
 }
 
 export const ShiftSummaryModal: React.FC<ShiftSummaryModalProps> = ({
@@ -315,6 +37,8 @@ export const ShiftSummaryModal: React.FC<ShiftSummaryModalProps> = ({
   onClose,
   report,
   onAdvanceToNextDay,
+  isLiveSynced = true,
+  lastSyncedAt,
 }) => {
   if (!isOpen) return null;
 
@@ -331,7 +55,7 @@ export const ShiftSummaryModal: React.FC<ShiftSummaryModalProps> = ({
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-bold text-white tracking-tight">
                   Daily Shift Summary Report
                 </h2>
@@ -344,25 +68,39 @@ export const ShiftSummaryModal: React.FC<ShiftSummaryModalProps> = ({
                 >
                   {report.shiftStatus === 'SHIFT_COMPLETED' ? 'Shift Completed' : 'Shift In Progress'}
                 </span>
+                {isLiveSynced && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950/70 text-emerald-300 border border-emerald-700">
+                    LIVE SYNC ACTIVE
+                  </span>
+                )}
               </div>
-              <p className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+              <p className="text-xs text-slate-400 flex items-center gap-2 mt-0.5 flex-wrap">
                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
                 <span>Day {report.dayNumber} • {report.shiftDateStr}</span>
                 <span>•</span>
                 <Clock className="w-3.5 h-3.5 text-slate-400" />
                 <span>{report.shiftWindow}</span>
+                <span>•</span>
+                <span className="text-cyan-300 font-mono">
+                  Shift End: {report.shiftEndTimeStr}
+                </span>
+                {lastSyncedAt && (
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    • Synced {new Date(lastSyncedAt).toLocaleTimeString()}
+                  </span>
+                )}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => exportReportToPdf(report)}
+              onClick={() => exportDailyShiftReportToPdf(report)}
               className="px-3.5 py-1.5 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md transition"
-              title="Print official shift summary report or save directly as PDF"
+              title="Download official daily shift summary report as PDF"
             >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Print / Save PDF</span>
+              <Download className="w-3.5 h-3.5" />
+              <span>Download PDF</span>
             </button>
             <button
               onClick={onClose}
@@ -830,11 +568,11 @@ export const ShiftSummaryModal: React.FC<ShiftSummaryModalProps> = ({
           </span>
           <div className="flex items-center gap-2.5">
             <button
-              onClick={() => exportReportToPdf(report)}
+              onClick={() => exportDailyShiftReportToPdf(report)}
               className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
             >
-              <Printer className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Print / Save PDF</span>
+              <Download className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Download PDF</span>
             </button>
             <button
               onClick={onClose}

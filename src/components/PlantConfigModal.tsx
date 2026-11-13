@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PlantOperationalConfig } from '../types/factory';
 import { parseTimeStringToHour } from '../simulation/plantEngine';
+import { formatHourOfDay } from '../utils/shiftTime';
 import {
   Clock,
   Truck,
@@ -202,7 +203,7 @@ export function PlantConfigModal({
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Configure 8-hour shift schedule, autonomous truck arrivals, manual barehand unloading, cycle times, and QC parameters
+                Configure {formData.shiftDurationHours}-hour shift schedule, autonomous truck arrivals, manual barehand unloading, cycle times, and QC parameters
               </p>
             </div>
           </div>
@@ -236,43 +237,70 @@ export function PlantConfigModal({
                 <span>1. Shift Duration & Machine Operating Hours</span>
               </div>
               <span className="text-xs text-slate-400 font-mono">
-                Daily 8:00 AM Start • Machine Wear Tracking
+                Daily {formatHourOfDay(formData.shiftStartHour ?? 8)} Start • Real-Time End: {formatHourOfDay((formData.shiftStartHour ?? 8) + formData.shiftDurationHours)}
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Daily Shift Duration: <span className="text-cyan-400 font-bold">{formData.shiftDurationHours} Hours</span>
-                </label>
-                <input
-                  type="range"
-                  min="4"
-                  max="24"
-                  step="1"
-                  value={formData.shiftDurationHours}
-                  onChange={e =>
-                    setFormData(prev => ({ ...prev, shiftDurationHours: Number(e.target.value) }))
-                  }
-                  className="w-full accent-cyan-500 cursor-pointer"
-                />
-                <div className="flex justify-between text-[10px] text-slate-500 mt-0.5">
-                  <span>4 Hours</span>
-                  <span className="text-cyan-400 font-semibold">8h Default</span>
-                  <span>16h (2 Shifts)</span>
-                  <span>24h (3 Shifts)</span>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Shift Start Time: <span className="text-cyan-400 font-bold font-mono">{formatHourOfDay(formData.shiftStartHour ?? 8)}</span>
+                  </label>
+                  <select
+                    value={formData.shiftStartHour ?? 8}
+                    onChange={e =>
+                      setFormData(prev => ({ ...prev, shiftStartHour: Number(e.target.value) }))
+                    }
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500 cursor-pointer"
+                  >
+                    <option value={6}>06:00 AM (Early Morning)</option>
+                    <option value={7}>07:00 AM</option>
+                    <option value={8}>08:00 AM (Standard)</option>
+                    <option value={9}>09:00 AM</option>
+                    <option value={10}>10:00 AM</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Daily Shift Duration: <span className="text-cyan-400 font-bold">{formData.shiftDurationHours} Hours</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="4"
+                    max="24"
+                    step="1"
+                    value={formData.shiftDurationHours}
+                    onChange={e =>
+                      setFormData(prev => ({ ...prev, shiftDurationHours: Number(e.target.value) }))
+                    }
+                    className="w-full accent-cyan-500 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-500 mt-0.5">
+                    <span>4 Hours</span>
+                    <span className="text-cyan-400 font-semibold">8h Default</span>
+                    <span>16h (2 Shifts)</span>
+                    <span>24h (3 Shifts)</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-3 text-xs space-y-1">
+              <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-3 text-xs space-y-1.5 flex flex-col justify-center">
                 <div className="text-slate-300 font-semibold flex items-center justify-between">
-                  <span>Shift Window:</span>
+                  <span>Real-Time Shift Window:</span>
                   <span className="font-mono text-cyan-300">
-                    08:00 AM – {(8 + formData.shiftDurationHours) % 24}:00 {8 + formData.shiftDurationHours >= 12 ? 'PM' : 'AM'}
+                    {formatHourOfDay(formData.shiftStartHour ?? 8)} – {formatHourOfDay((formData.shiftStartHour ?? 8) + formData.shiftDurationHours)}
+                  </span>
+                </div>
+                <div className="text-slate-300 font-semibold flex items-center justify-between">
+                  <span>Configured Shift End:</span>
+                  <span className="font-mono text-emerald-400 font-bold">
+                    {formatHourOfDay((formData.shiftStartHour ?? 8) + formData.shiftDurationHours)}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  Machines run for the full duration everyday. Machine wear (VB flank wear and bearing spalling) accumulates proportionally to operating run-hours.
+                  Machines run for the full configured duration every day. Machine wear (VB flank wear and bearing spalling) accumulates proportionally to operating run-hours.
                 </p>
               </div>
             </div>

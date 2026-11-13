@@ -27,7 +27,12 @@ service cloud.firestore {
 
     // 3. Tenant simulation state
     match /tenants/{orgId}/simulation_state/{stateId} {
-      allow read, write: if true;
+      allow read, write: if isValidId(orgId) && isValidId(stateId);
+    }
+
+    // 3b. Tenant real-time Daily Shift Summary Reports
+    match /tenants/{orgId}/daily_shift_reports/{reportId} {
+      allow read, write: if isValidId(orgId) && isValidId(reportId);
     }
 
     // 4. Parameter change requests

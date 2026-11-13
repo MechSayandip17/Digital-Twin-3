@@ -11,6 +11,8 @@ import {
   subscribeTenantSimulationState,
   subscribeParameterChangeRequests,
   subscribeAdminAuditLogs,
+  subscribeDailyShiftReport,
+  syncDailyShiftReportToFirestore,
 } from './firebaseClient';
 
 export interface LoginResponse {
@@ -417,19 +419,91 @@ export const apiClient = {
   },
 
   /**
-   * Saves / updates the Daily Shift Report for an organization
+   * Saves / updates the Daily Shift Report for an organization (Express + Cloud Firestore)
    */
   async saveDailyShiftReport(orgId: string = 'iiests-mech', report: any): Promise<boolean> {
+    if (!report || (report.sourceEnvironment && report.sourceEnvironment !== 'PRODUCTION')) {
+      return false;
+    }
+    const payload = {
+      ...report,
+      orgId,
+      sourceEnvironment: 'PRODUCTION',
+      lastUpdatedAt: new Date().toISOString(),
+    };
+    syncDailyShiftReportToFirestore(orgId, payload).catch(() => {});
     try {
       const res = await fetch('/api/twin/daily-shift-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orgId, report }),
+        body: JSON.stringify({ orgId, report: payload }),
       });
       return res.ok;
     } catch {
       return false;
     }
+  },
+
+  /**
+   * Dual real-time listener for Daily Shift Report:
+   * combines SSE server push stream + Cloud Firestore onSnapshot listener.
+   */
+  subscribeDailyShiftReportRealtime(
+    orgId: string = 'iiests-mech',
+    onData: (report: any) => void,
+    onError?: (err: Error) => void
+  ): () => void {
+    const safeOrg = orgId || 'iiests-mech';
+    let closed = false;
+    let eventSource: EventSource | null = null;
+    let unsubFirestore: (() => void) | null = null;
+
+    if (typeof EventSource !== 'undefined') {
+      try {
+        eventSource = new EventSource(`/api/twin/shift-report/stream?orgId=${encodeURIComponent(safeOrg)}`);
+        eventSource.onmessage = (evt) => {
+          if (closed) return;
+          try {
+            const parsed = JSON.parse(evt.data);
+            if (parsed?.report) {
+              onData(parsed.report);
+            }
+          } catch {
+            // ignore malformed event
+          }
+        };
+      } catch {
+        // fallback cleanly to Firestore listener / polling
+      }
+    }
+
+    try {
+      unsubFirestore = subscribeDailyShiftReport(
+        safeOrg,
+        (cloudReport) => {
+          if (!closed && cloudReport) {
+            onData(cloudReport);
+          }
+        },
+        onError
+      );
+    } catch (err: any) {
+      if (onError && err instanceof Error) onError(err);
+    }
+
+    return () => {
+      closed = true;
+      if (eventSource) {
+        try {
+          eventSource.close();
+        } catch {}
+      }
+      if (unsubFirestore) {
+        try {
+          unsubFirestore();
+        } catch {}
+      }
+    };
   },
 
   /**
@@ -508,9 +582,13 @@ export const apiClient = {
   },
 
   /**
-   * Saves tenant digital twin progress to per-organization database and Cloud Firestore
+   * Saves tenant digital twin progress to per-organization database and Cloud Firestore (PRODUCTION ONLY)
    */
   async saveTenantState(orgId: string, state: any): Promise<boolean> {
+    if (!state || (state.targetEnvironment && state.targetEnvironment !== 'PRODUCTION')) {
+      return false;
+    }
+
     // 1. Concurrently sync directly to Firestore from the client
     syncTenantStateToFirestore(orgId, state).catch(() => {});
 

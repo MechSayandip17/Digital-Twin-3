@@ -235,10 +235,11 @@ export async function syncPasswordResetToCloud(req: any): Promise<boolean> {
 }
 
 /**
- * Saves simulation state to Cloud Firestore
+ * Saves simulation state to Cloud Firestore (PRODUCTION ONLY)
  */
 export async function syncSimulationStateToCloud(orgId: string, state: any): Promise<boolean> {
   if (!firestoreDb) return false;
+  if (state?.targetEnvironment && state.targetEnvironment !== 'PRODUCTION') return false;
   try {
     const docRef = doc(firestoreDb, 'tenants', orgId, 'simulation_state', 'current');
     const cleaned = sanitizeForFirestore({ ...state, updatedAt: new Date().toISOString() });
@@ -250,6 +251,27 @@ export async function syncSimulationStateToCloud(orgId: string, state: any): Pro
   }
 }
 
-export { firestoreDb };
+/**
+ * Saves Daily Shift Summary Report to Cloud Firestore (PRODUCTION ONLY)
+ */
+export async function syncDailyShiftReportToCloud(orgId: string, report: any): Promise<boolean> {
+  if (!firestoreDb || !report) return false;
+  if (report.sourceEnvironment && report.sourceEnvironment !== 'PRODUCTION') return false;
+  try {
+    const docRef = doc(firestoreDb, 'tenants', orgId, 'daily_shift_reports', 'latest');
+    const cleaned = sanitizeForFirestore({
+      ...report,
+      orgId,
+      sourceEnvironment: 'PRODUCTION',
+      updatedAt: new Date().toISOString(),
+    });
+    await setDoc(docRef, cleaned, { merge: true });
+    return true;
+  } catch (err: any) {
+    console.warn(`[FirestoreSync] Failed to sync daily shift report for ${orgId} to Cloud:`, err.message);
+    return false;
+  }
+}
 
+export { firestoreDb, sanitizeForFirestore };
 

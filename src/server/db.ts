@@ -29,7 +29,30 @@ import {
   syncChangeRequestToCloud,
   syncPasswordResetToCloud,
   syncSimulationStateToCloud,
+  syncDailyShiftReportToCloud,
+  sanitizeForFirestore,
 } from './firestoreSync.ts';
+import { getShiftTimingDetails } from '../utils/shiftTime.ts';
+
+type ShiftReportListener = (orgId: string, report: any) => void;
+const shiftReportListeners = new Set<ShiftReportListener>();
+
+export function subscribeServerShiftReportUpdates(listener: ShiftReportListener): () => void {
+  shiftReportListeners.add(listener);
+  return () => {
+    shiftReportListeners.delete(listener);
+  };
+}
+
+function emitShiftReportUpdate(orgId: string, report: any) {
+  shiftReportListeners.forEach((cb) => {
+    try {
+      cb(orgId, report);
+    } catch {
+      // ignore listener errors
+    }
+  });
+}
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
@@ -558,6 +581,22 @@ export async function logAdminAction(input: {
   syncAuditLogToCloud(newLog).catch((err) => {
     console.warn('Firestore audit_logs sync warning:', err);
   });
+
+  // Whenever an admin governance / audit action occurs, refresh & broadcast the Daily Shift Report
+  try {
+    const currentReport = await getDailyShiftReport(DEFAULT_ORG_ID);
+    const refreshedReport = {
+      ...currentReport,
+      lastAuditAction: newLog.action,
+      lastAuditDetails: newLog.details,
+      lastAuditBy: newLog.adminEmail,
+      lastAuditTimestamp: newLog.timestampIso,
+      lastUpdatedAt: new Date().toISOString(),
+    };
+    await saveDailyShiftReport(DEFAULT_ORG_ID, refreshedReport);
+  } catch {
+    // non-fatal report audit sync
+  }
 
   return newLog;
 }
@@ -1334,6 +1373,12 @@ export async function getTenantSimulationState(orgId: string): Promise<any | nul
 }
 
 export async function saveTenantSimulationState(orgId: string, state: any): Promise<boolean> {
+  if (!state) return false;
+  // CRITICAL ISOLATION GUARD: Simulation & Historical sandbox modes must NEVER overwrite Production Live Asset state
+  if (state.targetEnvironment && state.targetEnvironment !== 'PRODUCTION') {
+    return false;
+  }
+
   await initializeDatabase();
   const tenantDir = path.join(TENANTS_DIR, orgId);
   await fs.mkdir(tenantDir, { recursive: true });
@@ -1342,7 +1387,7 @@ export async function saveTenantSimulationState(orgId: string, state: any): Prom
 
   const now = Date.now();
   const nowIso = new Date().toISOString();
-  const targetEnv = state.targetEnvironment || (state.isRunning ? 'PRODUCTION' : 'SIMULATION');
+  const targetEnv = 'PRODUCTION';
   const simSeconds = state.timeSeconds ?? state.simulatedSeconds ?? 0;
   const operatorName = state.activeOperatorName || state.operator?.name || 'Plant Operator';
 
@@ -1363,6 +1408,25 @@ export async function saveTenantSimulationState(orgId: string, state: any): Prom
   };
 
   await fs.writeFile(tenantFile, JSON.stringify(meta, null, 2), 'utf-8');
+
+  // Helper values from PlantSimulationState schema
+  const fg = state.completedCount ?? state.finishedGoods ?? state.metrics?.completedUnitsToday ?? 0;
+  const scrap = state.rejectedCount ?? state.scrapCountToday ?? state.metrics?.scrapCountToday ?? 0;
+  const stationVals = Array.isArray(state.stations)
+    ? state.stations
+    : state.stations && typeof state.stations === 'object'
+    ? Object.values(state.stations)
+    : [];
+  const activeStations = stationVals.filter((s: any) => s?.status === 'PROCESSING').length;
+  const wip =
+    state.wipCount ??
+    state.activeItemsCount ??
+    (Array.isArray(state.entities) ? state.entities.length : Array.isArray(state.activeItems) ? state.activeItems.length : 0);
+  const oeeVal =
+    state.oee?.overallOEE ??
+    (typeof state.metrics?.overallOee === 'number' ? state.metrics.overallOee * 100 : 88.5);
+  const energyKwhVal = state.energyTelemetry?.accumulatedEnergyKwh ?? state.energyTelemetry?.accumulatedKWh ?? (fg * 0.42 + 25.0);
+  const costInrVal = state.energyTelemetry?.accumulatedCostInr ?? energyKwhVal * 8.5;
 
   // Also log / append to production CSV database for permanent audit and high-throughput logging
   try {
@@ -1391,15 +1455,7 @@ export async function saveTenantSimulationState(orgId: string, state: any): Prom
     const currentDay = state.config?.simulatedDayCount || state.dayCount || 1;
     const clockStr = `${displayHrs}:${displayMins} ${ampm} (Day ${currentDay})`;
 
-    const fg = state.finishedGoods || state.metrics?.completedUnitsToday || 0;
-    const wip = state.activeItemsCount ?? (Array.isArray(state.activeItems) ? state.activeItems.length : 0);
-    const scrap = state.scrapCountToday || state.metrics?.scrapCountToday || 0;
-    const oee = state.metrics?.overallOee ? (state.metrics.overallOee * 100).toFixed(1) : '0.0';
-    const activeStations = Array.isArray(state.stations) ? state.stations.filter((s: any) => s.status === 'PROCESSING').length : 0;
-    const energyKWh = state.energyTelemetry?.accumulatedEnergyKwh ? state.energyTelemetry.accumulatedEnergyKwh.toFixed(2) : '0.00';
-    const costInr = state.energyTelemetry?.accumulatedCostInr ? state.energyTelemetry.accumulatedCostInr.toFixed(2) : '0.00';
-
-    const csvRow = `"${nowIso}",${now},"${clockStr}",${currentDay},${Math.floor(simSeconds)},${Boolean(state.isRunning)},"${operatorName.replace(/"/g, '""')}",${fg},${wip},${scrap},${oee},${activeStations},${energyKWh},${costInr}\n`;
+    const csvRow = `"${nowIso}",${now},"${clockStr}",${currentDay},${Math.floor(simSeconds)},${Boolean(state.isRunning)},"${operatorName.replace(/"/g, '""')}",${fg},${wip},${scrap},${Number(oeeVal).toFixed(1)},${activeStations},${Number(energyKwhVal).toFixed(2)},${Number(costInrVal).toFixed(2)}\n`;
     await fs.appendFile(csvFile, csvRow, 'utf-8');
   } catch {
     // non-fatal CSV log failure
@@ -1414,10 +1470,37 @@ export async function saveTenantSimulationState(orgId: string, state: any): Prom
     activeOperatorName: operatorName,
     lastSavedTimestamp: now,
     lastSavedClock: nowIso,
-    completedCount: state.completedCount || state.finishedGoods || 0,
-    rejectedCount: state.rejectedCount || state.scrapCountToday || 0,
-    wipCount: state.wipCount || 0,
+    completedCount: fg,
+    rejectedCount: scrap,
+    wipCount: wip,
   }).catch(() => {});
+
+  // Keep daily shift report in sync with Production Live Physical Asset progression
+  try {
+    const derivedReport = buildLiveShiftReportFromState(orgId, state);
+    let mergedReport = derivedReport;
+    try {
+      const existingRaw = await fs.readFile(SHIFT_REPORT_FILE(orgId), 'utf-8');
+      const existing = JSON.parse(existingRaw);
+      if (existing && typeof existing === 'object') {
+        mergedReport = {
+          ...existing,
+          ...derivedReport,
+          lastAuditAction: existing.lastAuditAction,
+          lastAuditDetails: existing.lastAuditDetails,
+          lastAuditBy: existing.lastAuditBy,
+          lastAuditTimestamp: existing.lastAuditTimestamp,
+        };
+      }
+    } catch {
+      // first report creation
+    }
+    await fs.writeFile(SHIFT_REPORT_FILE(orgId), JSON.stringify(mergedReport, null, 2), 'utf-8');
+    emitShiftReportUpdate(orgId, mergedReport);
+    syncDailyShiftReportToCloud(orgId, mergedReport).catch(() => {});
+  } catch {
+    // non-fatal daily shift report derivation
+  }
 
   return true;
 }
@@ -1777,96 +1860,203 @@ export async function controlTenantSimulation(
 const SHIFT_REPORT_FILE = (orgId: string) => path.join(TENANTS_DIR, orgId, 'daily_shift_report.json');
 
 /**
+ * Computes a live, dynamically-timed Daily Shift Report snapshot directly from a Production simulation state.
+ */
+export function buildLiveShiftReportFromState(orgId: string, s: any): any {
+  const shiftStartHour = s?.config?.shiftStartHour ?? 8;
+  const shiftDurationHours = s?.config?.shiftDurationHours ?? 8;
+  const timing = getShiftTimingDetails(shiftStartHour, shiftDurationHours);
+  const day = s?.config?.simulatedDayCount || s?.dayCount || 1;
+  const dateStr = s?.config?.simulatedDate || new Date().toISOString().split('T')[0];
+  const finished = s?.completedCount ?? s?.finishedGoods ?? 0;
+  const target = s?.config?.dailyTargetUnits ?? 360;
+  const scrap = s?.rejectedCount ?? s?.scrapCountToday ?? 0;
+  const arrears = s?.config?.arrearsUnits ?? 0;
+  const oee = s?.oee?.overallOEE ?? 88.5;
+  const availability = s?.oee?.availability ?? 92.0;
+  const performance = s?.oee?.performance ?? 96.0;
+  const fpy = s?.oee?.quality ?? (finished + scrap > 0 ? (finished / (finished + scrap)) * 100 : 100.0);
+  const energyKwh = s?.energyTelemetry?.accumulatedEnergyKwh ?? s?.energyTelemetry?.accumulatedKWh ?? (finished * 0.42 + 25.0);
+  const costInr = s?.energyTelemetry?.accumulatedCostInr ?? energyKwh * 8.5;
+  const specEnergy = finished > 0 ? energyKwh / finished : 0.79;
+
+  const latheSt = s?.stations?.['cnc_lathe'];
+  const millSt = s?.stations?.['cnc_milling'];
+  const shaperSt = s?.stations?.['cnc_shaping'];
+  const qcSt = s?.stations?.['qc_rm1'];
+
+  const trucksArrived = s?.config?.trucks
+    ? [s.config.trucks.rm1, s.config.trucks.rm2, s.config.trucks.rm3].filter((t: any) => t?.hasArrived).length
+    : 3;
+
+  const currentHour = ((s?.config?.simulatedSecondsOfDay ?? shiftStartHour * 3600) / 3600) % 24;
+  const isShiftOpen = Boolean(s?.config?.isShiftOpen ?? (currentHour >= shiftStartHour && currentHour < timing.shiftEndHour));
+  const shiftStatus = !isShiftOpen || currentHour >= timing.shiftEndHour ? 'SHIFT_COMPLETED' : 'SHIFT_IN_PROGRESS';
+
+  return {
+    success: true,
+    orgId,
+    reportId: `dsr-${day}-${dateStr}`,
+    dayNumber: day,
+    simulatedDayCount: day,
+    simulatedDate: dateStr,
+    shiftDateStr: dateStr,
+    shiftStartHour: timing.shiftStartHour,
+    shiftDurationHours: timing.shiftDurationHours,
+    shiftStartTimeStr: timing.shiftStartTimeStr,
+    shiftEndTimeStr: timing.shiftEndTimeStr,
+    shiftWindow: timing.shiftWindowLabel,
+    shiftName: timing.shiftNameLabel,
+    shiftStatus,
+    operatingHours: timing.shiftDurationHours,
+    durationHours: timing.shiftDurationHours,
+    finishedGoods: finished,
+    finishedGoodsCount: finished,
+    finishedGoodsToday: finished,
+    targetUnits: target,
+    dailyTargetUnits: target,
+    arrearsBacklog: arrears,
+    arrearsCount: arrears,
+    arrearsBacklogUnits: arrears,
+    scrapCount: scrap,
+    scrapCountToday: scrap,
+    overallOEE: Number(Number(oee).toFixed(1)),
+    oeePct: Number(Number(oee).toFixed(1)),
+    overallOeePercent: Number(Number(oee).toFixed(1)),
+    availabilityPct: Number(Number(availability).toFixed(1)),
+    performancePct: Number(Number(performance).toFixed(1)),
+    firstPassYield: Number(Number(fpy).toFixed(1)),
+    fpyPct: Number(Number(fpy).toFixed(1)),
+    firstPassYieldPercent: Number(Number(fpy).toFixed(1)),
+    energyConsumedKwh: Number(Number(energyKwh).toFixed(2)),
+    energyKwh: Number(Number(energyKwh).toFixed(1)),
+    totalEnergyConsumedKwh: Number(Number(energyKwh).toFixed(2)),
+    energyCostInr: Number(Number(costInr).toFixed(2)),
+    totalEnergyCostInr: Number(Number(costInr).toFixed(2)),
+    specificEnergyKwhPerUnit: Number(Number(specEnergy).toFixed(2)),
+    powerFactor: 0.96,
+    trucksDispatched: trucksArrived,
+    isShiftOpen,
+    isProductionRunning: Boolean(s?.isRunning),
+    sourceEnvironment: 'PRODUCTION',
+    subsystemWear: {
+      lathe: Number((latheSt?.sensors?.toolWearIndex ?? 0.12).toFixed(3)),
+      mill: Number((millSt?.sensors?.toolWearIndex ?? 0.08).toFixed(3)),
+      shaper: Number((shaperSt?.sensors?.toolWearIndex ?? 0.06).toFixed(3)),
+    },
+    subsystemStatuses: {
+      lathe: latheSt?.status || 'NOMINAL',
+      mill: millSt?.status || 'NOMINAL',
+      shaper: shaperSt?.status || 'NOMINAL',
+      qc: qcSt?.status || 'INSPECTING',
+    },
+    subsystems: [
+      {
+        name: 'CNC Lathe (RM1 Billet)',
+        status: latheSt?.activeFault && latheSt.activeFault !== 'NONE' ? latheSt.activeFault : (latheSt?.status || 'HEALTHY'),
+        flankWearMm: Number((latheSt?.sensors?.toolWearIndex ?? 0.12).toFixed(3)),
+        cycleSec: Math.round((s?.config?.latheCycleTimeMinutes ?? 6) * 60),
+      },
+      {
+        name: 'CNC Milling (RM2 Casting)',
+        status: millSt?.activeFault && millSt.activeFault !== 'NONE' ? millSt.activeFault : (millSt?.status || 'HEALTHY'),
+        flankWearMm: Number((millSt?.sensors?.toolWearIndex ?? 0.08).toFixed(3)),
+        cycleSec: Math.round((s?.config?.millingCycleTimeMinutes ?? 4) * 60),
+      },
+      {
+        name: 'Gear Shaping (RM3 Plate)',
+        status: shaperSt?.activeFault && shaperSt.activeFault !== 'NONE' ? shaperSt.activeFault : (shaperSt?.status || 'HEALTHY'),
+        flankWearMm: Number((shaperSt?.sensors?.toolWearIndex ?? 0.06).toFixed(3)),
+        cycleSec: Math.round((s?.config?.shapingCycleTimeMinutes ?? 3.5) * 60),
+      },
+      {
+        name: 'QC Subsystem (Optical & NDT)',
+        status: qcSt?.status || 'INSPECTING',
+        flankWearMm: 0.0,
+        cycleSec: s?.config?.qualityParameters?.reworkDurationSeconds ?? 180,
+      },
+    ],
+    generatedAt: new Date().toISOString(),
+    lastUpdatedAt: new Date().toISOString(),
+  };
+}
+
+/**
  * Retrieves the official live dynamic daily shift summary report for the organisation
  */
 export async function getDailyShiftReport(orgId: string = DEFAULT_ORG_ID): Promise<any> {
   await initializeDatabase();
+  let storedReport: any = null;
   try {
     const raw = await fs.readFile(SHIFT_REPORT_FILE(orgId), 'utf-8');
-    return JSON.parse(raw);
+    storedReport = JSON.parse(raw);
   } catch {
-    const tenantFile = path.join(TENANTS_DIR, orgId, 'state.json');
-    try {
-      const rawState = await fs.readFile(tenantFile, 'utf-8');
-      const parsed = JSON.parse(rawState);
-      const s = parsed.state || parsed;
-      const day = s.config?.simulatedDayCount || s.dayCount || 1;
-      const dateStr = s.config?.simulatedDate || new Date().toISOString().split('T')[0];
-      const finished = s.completedCount || s.finishedGoods || 0;
-      const target = s.config?.dailyTargetUnits || 360;
-      const scrap = s.rejectedCount || 0;
-      const arrears = s.config?.arrearsUnits || 0;
-      const oee = s.oee?.overallOEE || 88.5;
-      const fpy = finished + scrap > 0 ? (finished / (finished + scrap)) * 100 : 98.2;
-      const energyKwh = s.energyTelemetry?.accumulatedKWh || (finished * 0.42 + 25.0);
-      const costInr = s.energyTelemetry?.accumulatedCostInr || energyKwh * 8.5;
-
-      return {
-        success: true,
-        reportId: `dsr-${day}-${dateStr}`,
-        simulatedDayCount: day,
-        simulatedDate: dateStr,
-        shiftName: 'Shift 1: Morning (08:00 AM – 04:00 PM)',
-        durationHours: 8.0,
-        finishedGoods: finished,
-        targetUnits: target,
-        arrearsBacklog: arrears,
-        scrapCount: scrap,
-        overallOEE: Number(oee.toFixed(1)),
-        firstPassYield: Number(fpy.toFixed(1)),
-        energyConsumedKwh: Number(energyKwh.toFixed(2)),
-        energyCostInr: Number(costInr.toFixed(2)),
-        subsystems: [
-          { name: 'CNC Lathe (RM1 Billet)', status: 'HEALTHY', flankWearMm: 0.12, cycleSec: 360 },
-          { name: 'CNC Milling (RM2 Casting)', status: 'HEALTHY', flankWearMm: 0.08, cycleSec: 240 },
-          { name: 'Gear Shaping (RM3 Plate)', status: 'HEALTHY', flankWearMm: 0.06, cycleSec: 210 },
-          { name: 'QC Subsystem (Optical & NDT)', status: 'INSPECTING', flankWearMm: 0.0, cycleSec: 180 },
-        ],
-        generatedAt: new Date().toISOString(),
-      };
-    } catch {
-      return {
-        success: true,
-        reportId: `dsr-1-${new Date().toISOString().split('T')[0]}`,
-        simulatedDayCount: 1,
-        simulatedDate: new Date().toISOString().split('T')[0],
-        shiftName: 'Shift 1: Morning (08:00 AM – 04:00 PM)',
-        durationHours: 8.0,
-        finishedGoods: 0,
-        targetUnits: 360,
-        arrearsBacklog: 0,
-        scrapCount: 0,
-        overallOEE: 88.5,
-        firstPassYield: 100.0,
-        energyConsumedKwh: 25.0,
-        energyCostInr: 212.5,
-        subsystems: [
-          { name: 'CNC Lathe (RM1 Billet)', status: 'HEALTHY', flankWearMm: 0.12, cycleSec: 360 },
-          { name: 'CNC Milling (RM2 Casting)', status: 'HEALTHY', flankWearMm: 0.08, cycleSec: 240 },
-          { name: 'Gear Shaping (RM3 Plate)', status: 'HEALTHY', flankWearMm: 0.06, cycleSec: 210 },
-          { name: 'QC Subsystem (Optical & NDT)', status: 'HEALTHY', flankWearMm: 0.0, cycleSec: 180 },
-        ],
-        generatedAt: new Date().toISOString(),
-      };
-    }
+    storedReport = null;
   }
+
+  let liveState: any = null;
+  try {
+    const rawState = await fs.readFile(path.join(TENANTS_DIR, orgId, 'state.json'), 'utf-8');
+    const parsed = JSON.parse(rawState);
+    liveState = parsed.state || parsed;
+  } catch {
+    liveState = null;
+  }
+
+  if (liveState) {
+    const fromState = buildLiveShiftReportFromState(orgId, liveState);
+    if (!storedReport) return fromState;
+    return {
+      ...storedReport,
+      ...fromState,
+      // Retain full detailed equipment/fault/throughput arrays if synced from frontend full report
+      equipmentSummaries: storedReport.equipmentSummaries || fromState.equipmentSummaries,
+      faultIncidentsToday: storedReport.faultIncidentsToday || fromState.faultIncidentsToday,
+      entityThroughputByType: storedReport.entityThroughputByType || fromState.entityThroughputByType,
+      reworksToday: storedReport.reworksToday || fromState.reworksToday,
+      scrapsToday: storedReport.scrapsToday || fromState.scrapsToday,
+      prescriptiveRecommendations: storedReport.prescriptiveRecommendations || fromState.prescriptiveRecommendations,
+      lastAuditAction: storedReport.lastAuditAction,
+      lastAuditDetails: storedReport.lastAuditDetails,
+      lastAuditBy: storedReport.lastAuditBy,
+      lastAuditTimestamp: storedReport.lastAuditTimestamp,
+    };
+  }
+
+  if (storedReport) {
+    const timing = getShiftTimingDetails(storedReport.shiftStartHour ?? 8, storedReport.shiftDurationHours ?? storedReport.operatingHours ?? 8);
+    return {
+      ...storedReport,
+      shiftStartTimeStr: timing.shiftStartTimeStr,
+      shiftEndTimeStr: timing.shiftEndTimeStr,
+      shiftWindow: timing.shiftWindowLabel,
+      shiftName: timing.shiftNameLabel,
+    };
+  }
+
+  return buildLiveShiftReportFromState(orgId, {});
 }
 
 export async function saveDailyShiftReport(orgId: string, report: any): Promise<boolean> {
-  await initializeDatabase();
-  const file = SHIFT_REPORT_FILE(orgId);
-  await fs.writeFile(file, JSON.stringify(report, null, 2), 'utf-8');
-  if (report) {
-    try {
-      const { firestoreDb } = await import('./firestoreSync.ts');
-      if (firestoreDb) {
-        const { doc, setDoc } = await import('firebase/firestore');
-        const docRef = doc(firestoreDb, 'tenants', orgId, 'daily_shift_reports', 'latest');
-        setDoc(docRef, { ...report, updatedAt: new Date().toISOString() }, { merge: true }).catch(() => {});
-      }
-    } catch {}
+  if (!report) return false;
+  if (report.sourceEnvironment && report.sourceEnvironment !== 'PRODUCTION') {
+    return false;
   }
+  await initializeDatabase();
+  const tenantDir = path.join(TENANTS_DIR, orgId);
+  await fs.mkdir(tenantDir, { recursive: true });
+  const file = SHIFT_REPORT_FILE(orgId);
+  const cleaned = sanitizeForFirestore({
+    ...report,
+    orgId,
+    sourceEnvironment: 'PRODUCTION',
+    lastUpdatedAt: new Date().toISOString(),
+  });
+  await fs.writeFile(file, JSON.stringify(cleaned, null, 2), 'utf-8');
+  emitShiftReportUpdate(orgId, cleaned);
+  syncDailyShiftReportToCloud(orgId, cleaned).catch(() => {});
   return true;
 }
+
 
 
