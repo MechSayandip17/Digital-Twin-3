@@ -166,13 +166,35 @@ export async function syncAllOrgsToCloud(orgs: OrganisationRecord[]): Promise<vo
 }
 
 /**
+ * Recursively strips undefined values from an object so Firestore setDoc does not reject with:
+ * "Unsupported field value: undefined"
+ */
+function sanitizeForFirestore<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeForFirestore) as unknown as T;
+  }
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = sanitizeForFirestore(value);
+      }
+    }
+    return cleaned as T;
+  }
+  return obj;
+}
+
+/**
  * Saves an audit log entry to Cloud Firestore
  */
 export async function syncAuditLogToCloud(log: AdminAuditLog): Promise<boolean> {
   if (!firestoreDb) return false;
   try {
     const docRef = doc(firestoreDb, 'audit_logs', log.id);
-    await setDoc(docRef, log, { merge: true });
+    const cleanedLog = sanitizeForFirestore(log);
+    await setDoc(docRef, cleanedLog, { merge: true });
     return true;
   } catch (err: any) {
     console.warn(`[FirestoreSync] Failed to sync audit log ${log.id} to Cloud:`, err.message);
@@ -187,7 +209,8 @@ export async function syncChangeRequestToCloud(req: any): Promise<boolean> {
   if (!firestoreDb) return false;
   try {
     const docRef = doc(firestoreDb, 'parameter_change_requests', req.id);
-    await setDoc(docRef, { ...req, updatedAt: new Date().toISOString() }, { merge: true });
+    const cleaned = sanitizeForFirestore({ ...req, updatedAt: new Date().toISOString() });
+    await setDoc(docRef, cleaned, { merge: true });
     return true;
   } catch (err: any) {
     console.warn(`[FirestoreSync] Failed to sync change request ${req.id} to Cloud:`, err.message);
@@ -202,7 +225,8 @@ export async function syncPasswordResetToCloud(req: any): Promise<boolean> {
   if (!firestoreDb) return false;
   try {
     const docRef = doc(firestoreDb, 'password_resets', req.id);
-    await setDoc(docRef, { ...req, updatedAt: new Date().toISOString() }, { merge: true });
+    const cleaned = sanitizeForFirestore({ ...req, updatedAt: new Date().toISOString() });
+    await setDoc(docRef, cleaned, { merge: true });
     return true;
   } catch (err: any) {
     console.warn(`[FirestoreSync] Failed to sync password reset ${req.id} to Cloud:`, err.message);
@@ -217,7 +241,8 @@ export async function syncSimulationStateToCloud(orgId: string, state: any): Pro
   if (!firestoreDb) return false;
   try {
     const docRef = doc(firestoreDb, 'tenants', orgId, 'simulation_state', 'current');
-    await setDoc(docRef, { ...state, updatedAt: new Date().toISOString() }, { merge: true });
+    const cleaned = sanitizeForFirestore({ ...state, updatedAt: new Date().toISOString() });
+    await setDoc(docRef, cleaned, { merge: true });
     return true;
   } catch (err: any) {
     console.warn(`[FirestoreSync] Failed to sync simulation state for ${orgId} to Cloud:`, err.message);

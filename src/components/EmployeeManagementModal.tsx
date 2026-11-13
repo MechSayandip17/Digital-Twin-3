@@ -21,6 +21,8 @@ interface EmployeeManagementModalProps {
   employees: Employee[];
   onUpdateEmployees: (employees: Employee[]) => void;
   isAdmin?: boolean;
+  adminEmail?: string;
+  adminBadge?: string;
 }
 
 const ROLE_LABELS: Record<EmployeeRole, string> = {
@@ -44,10 +46,14 @@ export const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = (
   employees,
   onUpdateEmployees,
   isAdmin = false,
+  adminEmail,
+  adminBadge,
 }) => {
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [filterRole, setFilterRole] = useState<string>('ALL');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
 
   // Form state for add / edit
   const [formData, setFormData] = useState<Partial<Employee>>({
@@ -96,48 +102,67 @@ export const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = (
     setFormData({ ...emp });
   };
 
-  const handleSaveForm = (e: React.FormEvent) => {
+  const handleSaveForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
     if (!formData.name?.trim()) return;
 
-    if (isAddingNew) {
-      const newEmp: Employee = {
-        id: formData.id || `emp-${Date.now()}`,
-        employeeId: formData.employeeId || `ME-OPR-${Math.floor(1000 + Math.random() * 9000)}`,
-        name: formData.name.trim(),
-        role: (formData.role as EmployeeRole) || 'CNC_MACHINIST',
-        assignedStationId: formData.assignedStationId || 'ALL',
-        shift: (formData.shift as EmployeeShift) || 'SHIFT_1_DAY',
-        skillCertification: formData.skillCertification || 'General Manufacturing Certified',
-        hourlyWage: Number(formData.hourlyWage) || 350.0,
-        efficiencyRating: Number(formData.efficiencyRating) || 1.0,
-        status: (formData.status as EmployeeStatus) || 'ACTIVE',
-        hireDate: formData.hireDate || new Date().toISOString().split('T')[0],
-      };
-      onUpdateEmployees([...employees, newEmp]);
-      apiClient.updateEmployee(newEmp.id, newEmp).catch(() => {});
-      setIsAddingNew(false);
-    } else if (editingEmployeeId) {
-      let savedEmp: Employee | null = null;
-      const updated = employees.map(emp => {
-        if (emp.id === editingEmployeeId) {
-          savedEmp = {
-            ...emp,
-            ...formData,
-            name: formData.name?.trim() || emp.name,
-            hourlyWage: Number(formData.hourlyWage) || emp.hourlyWage,
-            efficiencyRating: Number(formData.efficiencyRating) || emp.efficiencyRating,
-          } as Employee;
-          return savedEmp;
+    setIsSaving(true);
+    setSaveFeedback(null);
+
+    try {
+      if (isAddingNew) {
+        const newEmp: Employee = {
+          id: formData.id || `emp-${Date.now()}`,
+          employeeId: formData.employeeId || `ME-OPR-${Math.floor(1000 + Math.random() * 9000)}`,
+          name: formData.name.trim(),
+          role: (formData.role as EmployeeRole) || 'CNC_MACHINIST',
+          assignedStationId: formData.assignedStationId || 'ALL',
+          shift: (formData.shift as EmployeeShift) || 'SHIFT_1_DAY',
+          skillCertification: formData.skillCertification || 'General Manufacturing Certified',
+          hourlyWage: Number(formData.hourlyWage) || 350.0,
+          efficiencyRating: Number(formData.efficiencyRating) || 1.0,
+          status: (formData.status as EmployeeStatus) || 'ACTIVE',
+          hireDate: formData.hireDate || new Date().toISOString().split('T')[0],
+        };
+        const res = await apiClient.updateEmployee(newEmp.id, newEmp, adminEmail, adminBadge);
+        if (res.success && res.employee) {
+          const freshList = await apiClient.getEmployees();
+          onUpdateEmployees(freshList);
+          setSaveFeedback(`Employee ${newEmp.name} registered and saved.`);
+        } else {
+          onUpdateEmployees([...employees, newEmp]);
         }
-        return emp;
-      });
-      onUpdateEmployees(updated);
-      if (savedEmp) {
-        apiClient.updateEmployee((savedEmp as Employee).id, savedEmp as Employee).catch(() => {});
+        setIsAddingNew(false);
+      } else if (editingEmployeeId) {
+        let savedEmp: Employee | null = null;
+        const updated = employees.map(emp => {
+          if (emp.id === editingEmployeeId) {
+            savedEmp = {
+              ...emp,
+              ...formData,
+              name: formData.name?.trim() || emp.name,
+              hourlyWage: Number(formData.hourlyWage) || emp.hourlyWage,
+              efficiencyRating: Number(formData.efficiencyRating) || emp.efficiencyRating,
+            } as Employee;
+            return savedEmp;
+          }
+          return emp;
+        });
+        onUpdateEmployees(updated);
+        if (savedEmp) {
+          await apiClient.updateEmployee((savedEmp as Employee).id, savedEmp as Employee, adminEmail, adminBadge);
+          const freshList = await apiClient.getEmployees();
+          onUpdateEmployees(freshList);
+          setSaveFeedback(`Employee ${(savedEmp as Employee).name} details updated.`);
+        }
+        setEditingEmployeeId(null);
       }
-      setEditingEmployeeId(null);
+    } catch (err: any) {
+      setSaveFeedback('Error saving employee: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setSaveFeedback(null), 3000);
     }
   };
 
@@ -388,6 +413,12 @@ export const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = (
                 </div>
               </div>
 
+              {saveFeedback && (
+                <div className={`p-2 rounded text-xs ${saveFeedback.includes('Error') ? 'bg-rose-950/80 text-rose-300 border border-rose-800' : 'bg-emerald-950/80 text-emerald-300 border border-emerald-800'}`}>
+                  {saveFeedback}
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
                 <button
                   type="button"
@@ -401,10 +432,11 @@ export const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = (
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow"
+                  disabled={isSaving}
+                  className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  <span>{isAddingNew ? 'Create Employee' : 'Save Changes'}</span>
+                  <span>{isSaving ? 'Saving to Database...' : isAddingNew ? 'Create Employee' : 'Save Changes'}</span>
                 </button>
               </div>
             </form>

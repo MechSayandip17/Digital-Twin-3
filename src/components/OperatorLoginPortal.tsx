@@ -45,6 +45,7 @@ import {
 } from '../types/auth';
 import { apiClient } from '../services/apiClient';
 import { signInWithGoogle } from '../services/firebaseClient';
+import { AuditTrailView } from './AuditTrailView';
 
 interface OperatorLoginPortalProps {
   onLogin: (operator: OperatorProfile, environment: TwinEnvironment, organisation: OrganisationRecord) => void;
@@ -134,6 +135,8 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
   const [pendingPasswordResets, setPendingPasswordResets] = useState<any[]>([]);
   const [changeRequests, setChangeRequests] = useState<ParameterChangeRequest[]>([]);
   const [adminActionMsg, setAdminActionMsg] = useState<string | null>(null);
+  const [liveShiftReport, setLiveShiftReport] = useState<any | null>(null);
+  const [isLoadingReport, setIsLoadingReport] = useState<boolean>(false);
 
   // Institution Selection Dropdown for Registration
   const [selectedOrgDropdown, setSelectedOrgDropdown] = useState<string>('Mechanical Engg. Dept., IIESTS');
@@ -223,6 +226,20 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
       // ignore
     } finally {
       setIsLoadingLogs(false);
+    }
+  };
+
+  const loadDailyShiftReport = async () => {
+    setIsLoadingReport(true);
+    try {
+      const report = await apiClient.getDailyShiftReport(selectedOrgId || 'iiests-mech');
+      if (report) {
+        setLiveShiftReport(report);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsLoadingReport(false);
     }
   };
 
@@ -1425,7 +1442,10 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => setAdminSubTab('daily_report')}
+                      onClick={() => {
+                        setAdminSubTab('daily_report');
+                        loadDailyShiftReport();
+                      }}
                       className={`flex-1 py-1.5 px-2.5 rounded-lg flex items-center justify-center gap-1.5 transition ${
                         adminSubTab === 'daily_report'
                           ? 'bg-indigo-600 text-white font-bold shadow'
@@ -1684,76 +1704,12 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
 
                   {/* SUB-TAB 2: ADMIN ACTIVITY HISTORY (AUDIT TRAIL) */}
                   {adminSubTab === 'audit_history' && (
-                    <div className="space-y-3 pt-1 animate-fadeIn">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-200 flex items-center gap-1.5">
-                          <History className="w-4 h-4 text-cyan-400" />
-                          Administrative Activity History & Governance Log
-                        </span>
-                        <button
-                          onClick={loadAdminAuditLogs}
-                          disabled={isLoadingLogs}
-                          className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1"
-                        >
-                          <RefreshCw className={`w-3 h-3 ${isLoadingLogs ? 'animate-spin' : ''}`} />
-                          Refresh
-                        </button>
-                      </div>
-
-                      {adminAuditLogs.length === 0 ? (
-                        <div className="py-6 text-center border border-dashed border-slate-800 rounded-xl text-slate-400 text-xs space-y-1">
-                          <History className="w-6 h-6 mx-auto text-slate-600 mb-1" />
-                          <p className="font-semibold text-slate-300">No Administrative Actions Logged Yet</p>
-                          <p className="text-[11px] text-slate-500">
-                            Every user verification, rejection, parameter approval, and simulation override is cryptographically logged here.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                          {adminAuditLogs.map((log) => {
-                            const isApproval = log.action === 'USER_APPROVED' || log.action === 'PROPOSAL_APPROVED';
-                            const isRejection = log.action === 'USER_REJECTED' || log.action === 'PROPOSAL_REJECTED';
-                            return (
-                              <div
-                                key={log.id}
-                                className="p-3 rounded-xl bg-slate-950 border border-slate-800/90 text-xs space-y-1.5 transition hover:border-slate-700"
-                              >
-                                <div className="flex items-center justify-between gap-2 flex-wrap">
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                                        isApproval
-                                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                                          : isRejection
-                                          ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                                          : 'bg-indigo-950 text-indigo-300 border border-indigo-800'
-                                      }`}
-                                    >
-                                      {log.action.replace('_', ' ')}
-                                    </span>
-                                    <span className="font-semibold text-white text-xs">{log.targetName || log.targetId}</span>
-                                    {log.targetBadge && (
-                                      <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-cyan-300">
-                                        {log.targetBadge}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <span className="text-[10px] font-mono text-slate-400">{log.timestampStr}</span>
-                                </div>
-
-                                <div className="text-[11px] text-slate-300 leading-relaxed">
-                                  {log.details}
-                                </div>
-
-                                <div className="text-[10px] text-slate-500 flex items-center justify-between pt-1 border-t border-slate-900">
-                                  <span>Admin Actor: <strong className="text-slate-400">{log.adminEmail}</strong> ({log.adminBadge})</span>
-                                  <span className="font-mono text-[9px] text-slate-600">ID: {log.id}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                    <div className="pt-1 animate-fadeIn">
+                      <AuditTrailView
+                        initialLogs={adminAuditLogs}
+                        onRefresh={loadAdminAuditLogs}
+                        title="Admin Governance & Asset Control Audit Trail"
+                      />
                     </div>
                   )}
 
@@ -1765,38 +1721,66 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
                           <ClipboardList className="w-4 h-4 text-emerald-400" />
                           <div>
                             <span className="font-bold text-slate-100 block">Plant Operational Shift Report</span>
-                            <span className="text-[10px] text-slate-400">Shift 1 • 08:00 AM – 04:00 PM (8.0 Operating Hours)</span>
+                            <span className="text-[10px] text-slate-400">
+                              {liveShiftReport?.shiftName || 'Shift 1'} • {liveShiftReport?.operatingHours || 8.0} Operating Hours • Day {liveShiftReport?.dayNumber || 1}
+                            </span>
                           </div>
                         </div>
-                        <button
-                          onClick={() => window.print()}
-                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs flex items-center gap-1.5 border border-slate-700 transition"
-                        >
-                          <Printer className="w-3.5 h-3.5" />
-                          <span>Print Report</span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={loadDailyShiftReport}
+                            disabled={isLoadingReport}
+                            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs flex items-center gap-1.5 border border-slate-700 transition"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isLoadingReport ? 'animate-spin' : ''}`} />
+                            <span>Sync Realtime</span>
+                          </button>
+                          <button
+                            onClick={() => window.print()}
+                            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs flex items-center gap-1.5 border border-slate-700 transition"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                            <span>Print Report</span>
+                          </button>
+                        </div>
                       </div>
 
                       {/* Executive KPI Grid */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                         <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-0.5">
-                          <span className="text-[10px] text-slate-400 block">Output Target</span>
-                          <span className="font-bold text-white text-sm font-mono">360 Units</span>
-                          <span className="text-[9px] text-cyan-400 block">120 sets / 3 trucks</span>
+                          <span className="text-[10px] text-slate-400 block">Output Target / Finished</span>
+                          <span className="font-bold text-white text-sm font-mono">
+                            {liveShiftReport?.finishedGoodsCount !== undefined
+                              ? `${liveShiftReport.finishedGoodsCount} / ${liveShiftReport.targetUnits || 360} Units`
+                              : '360 Units'}
+                          </span>
+                          <span className="text-[9px] text-cyan-400 block">
+                            {liveShiftReport ? `${liveShiftReport.trucksDispatched || 0} trucks dispatched` : '120 sets / 3 trucks'}
+                          </span>
                         </div>
                         <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-0.5">
                           <span className="text-[10px] text-slate-400 block">Overall Plant OEE</span>
-                          <span className="font-bold text-emerald-400 text-sm font-mono">88.5%</span>
-                          <span className="text-[9px] text-emerald-400 block">World Class Standard</span>
+                          <span className="font-bold text-emerald-400 text-sm font-mono">
+                            {liveShiftReport?.oeePct !== undefined ? `${liveShiftReport.oeePct}%` : '88.5%'}
+                          </span>
+                          <span className="text-[9px] text-emerald-400 block">
+                            {liveShiftReport ? `Avail: ${liveShiftReport.availabilityPct || 92}% • Perf: ${liveShiftReport.performancePct || 96}%` : 'World Class Standard'}
+                          </span>
                         </div>
                         <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-0.5">
                           <span className="text-[10px] text-slate-400 block">Backlog / Arrears</span>
-                          <span className="font-bold text-slate-200 text-sm font-mono">0 Units</span>
-                          <span className="text-[9px] text-slate-500 block">Zero delivery backlog</span>
+                          <span className="font-bold text-amber-400 text-sm font-mono">
+                            {liveShiftReport?.arrearsCount !== undefined ? `${liveShiftReport.arrearsCount} Units` : '0 Units'}
+                          </span>
+                          <span className="text-[9px] text-slate-500 block">
+                            {liveShiftReport?.arrearsCount ? 'Delivery backlog carries to next day' : 'Zero delivery backlog'}
+                          </span>
                         </div>
                         <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-0.5">
                           <span className="text-[10px] text-slate-400 block">First Pass Yield</span>
-                          <span className="font-bold text-cyan-400 text-sm font-mono">98.2%</span>
+                          <span className="font-bold text-cyan-400 text-sm font-mono">
+                            {liveShiftReport?.fpyPct !== undefined ? `${liveShiftReport.fpyPct}%` : '98.2%'}
+                          </span>
                           <span className="text-[9px] text-slate-400 block">QC Stage 1, 2, 3</span>
                         </div>
                       </div>
@@ -1810,21 +1794,27 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
                           <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
                             <div>
                               <span className="font-semibold text-slate-200 block">CNC Lathe (RM1 Billet)</span>
-                              <span className="text-[10px] text-slate-400">Cycle: 360s • ISO 3685 Flank Wear: 0.12mm</span>
+                              <span className="text-[10px] text-slate-400">
+                                Cycle: 360s • ISO 3685 Flank Wear: {liveShiftReport?.subsystemWear?.lathe !== undefined ? `${liveShiftReport.subsystemWear.lathe}mm` : '0.12mm'}
+                              </span>
                             </div>
                             <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 font-mono">HEALTHY</span>
                           </div>
                           <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
                             <div>
                               <span className="font-semibold text-slate-200 block">CNC Milling (RM2 Casting)</span>
-                              <span className="text-[10px] text-slate-400">Cycle: 240s • ISO 3685 Flank Wear: 0.08mm</span>
+                              <span className="text-[10px] text-slate-400">
+                                Cycle: 240s • ISO 3685 Flank Wear: {liveShiftReport?.subsystemWear?.mill !== undefined ? `${liveShiftReport.subsystemWear.mill}mm` : '0.08mm'}
+                              </span>
                             </div>
                             <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 font-mono">HEALTHY</span>
                           </div>
                           <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
                             <div>
                               <span className="font-semibold text-slate-200 block">Gear Shaping (RM3 Plate)</span>
-                              <span className="text-[10px] text-slate-400">Cycle: 210s • ISO 3685 Flank Wear: 0.06mm</span>
+                              <span className="text-[10px] text-slate-400">
+                                Cycle: 210s • ISO 3685 Flank Wear: {liveShiftReport?.subsystemWear?.shaper !== undefined ? `${liveShiftReport.subsystemWear.shaper}mm` : '0.06mm'}
+                              </span>
                             </div>
                             <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950 text-emerald-300 font-mono">HEALTHY</span>
                           </div>
@@ -1845,10 +1835,12 @@ export const OperatorLoginPortal: React.FC<OperatorLoginPortalProps> = ({
                             <Zap className="w-3.5 h-3.5 text-amber-400" />
                             Industrial Energy & Tariffs (Indian Standards)
                           </span>
-                          <span className="font-mono text-cyan-300 text-xs font-bold">₹2,283.20 Est. Shift Cost</span>
+                          <span className="font-mono text-cyan-300 text-xs font-bold">
+                            ₹{liveShiftReport?.energyCostInr ? Number(liveShiftReport.energyCostInr).toFixed(2) : '2,283.20'} Est. Shift Cost
+                          </span>
                         </div>
                         <p className="text-[11px] text-slate-400">
-                          Total Energy Consumption: <strong className="text-white">285.4 kWh</strong> • Specific Energy: <strong className="text-white">0.79 kWh/unit</strong> • Power Factor: <strong className="text-white">0.96 (Optimal)</strong>
+                          Total Energy Consumption: <strong className="text-white">{liveShiftReport?.energyKwh || '285.4'} kWh</strong> • Specific Energy: <strong className="text-white">{liveShiftReport?.specificEnergyKwhPerUnit || '0.79'} kWh/unit</strong> • Power Factor: <strong className="text-white">0.96 (Optimal)</strong>
                         </p>
                       </div>
                     </div>

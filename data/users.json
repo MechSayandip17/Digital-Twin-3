@@ -269,5 +269,140 @@
     ],
     "approvedAt": "2026-11-10T18:09:55.017Z",
     "approvedBy": "sayandipmallickclassf@gmail.com"
+  },
+  {
+    "id": "usr-mwb16w8b",
+    "department": "Computer Science & Engineering",
+    "roleTitle": "Production Cell Supervisor (ERP/MRP Lead)",
+    "approvedAt": "2026-11-10T18:37:22.898Z",
+    "createdAt": "2026-11-10T18:36:14.123Z",
+    "email": "rumapolosaha@gmail.com",
+    "name": "Pousali Saha",
+    "organisationId": "iiests-mech",
+    "approvedBy": "sayandipmallickclassf@gmail.com",
+    "role": "PLANT_SUPERVISOR",
+    "updatedAt": "2026-11-11T17:28:38.530Z",
+    "status": "APPROVED",
+    "badgeId": "ME-CSE-0064",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC",
+      "ERP_MRP_CONFIG"
+    ],
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "password": "26795849674a3e0a4ee69935c8269c8ec90b44b8a93ec3fdd6a97446c459cd3b"
+  },
+  {
+    "id": "usr-mwb1encj",
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "organisationId": "iiests-mech",
+    "updatedAt": "2026-11-11T17:28:38.530Z",
+    "role": "QUALITY_ENGINEER",
+    "roleTitle": "Quality Assurance Inspector",
+    "email": "bipasha@iiests.ac.in",
+    "name": "Bipasha Paul",
+    "permissions": [
+      "VIEW_TWIN",
+      "AUDIT_SCRAP",
+      "REWORK_ROUTING",
+      "EXPORT_TRACEABILITY"
+    ],
+    "status": "APPROVED",
+    "createdAt": "2026-11-10T18:42:15.859Z",
+    "department": "Metrology",
+    "approvedAt": "2026-11-10T18:42:43.654Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com",
+    "badgeId": "ME-OPR-4458",
+    "password": "05f127d635abc6dc1bbeca346fb9a6dbac6f7f8696f91c20882cf7ab2417ef73"
+  },
+  {
+    "id": "usr-mwbyfb16",
+    "rejectionReason": "Declined by Chief Engineer / System Administrator.",
+    "status": "REJECTED",
+    "department": "Testing Hub",
+    "email": "pending.1794391593870@test-org.in",
+    "badgeId": "PEND-3870",
+    "role": "PLANT_OPERATOR",
+    "updatedAt": "2026-11-11T17:28:38.530Z",
+    "organisationName": "Unverified Test Org",
+    "name": "Pending Operator",
+    "createdAt": "2026-11-11T10:06:33.882Z",
+    "organisationId": "unverified-test-org",
+    "roleTitle": "Certified Plant Operator",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC"
+    ],
+    "password": "369bf2b2f39d04ff5c4f2fe8132d36c2958a4fbcd77cf7b810ff2cee23252eb5"
+  },
+  {
+    "id": "usr-mwbyfb55",
+    "roleTitle": "Certified Plant Operator",
+    "organisationId": "hal-aerospace-actuator-division",
+    "name": "Suresh Kumar",
+    "department": "Hydraulic Actuators Unit",
+    "createdAt": "2026-11-11T10:06:34.025Z",
+    "badgeId": "TEST-OPR-4011",
+    "approvedAt": "2026-11-11T10:06:34.138Z",
+    "approvedBy": "sayandipmallickclassf@gmail.com",
+    "role": "PLANT_OPERATOR",
+    "status": "APPROVED",
+    "updatedAt": "2026-11-11T17:28:38.530Z",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC"
+    ],
+    "email": "test.1794391594011@aerospace-unit.in",
+    "organisationName": "HAL Aerospace Actuator Division",
+    "password": "f2c3d237d5184a6cdc2f997fe30fdb95d469b134e4f86a27158b99f07a66c82a"
+  },
+  {
+    "id": "usr-mwbyfbaj",
+    "organisationId": "iiests-mech",
+    "email": "sup.1794391594215@plant.in",
+    "badgeId": "SUP-4214",
+    "approvedBy": "sayandipmallickclassf@gmail.com",
+    "department": "Advanced Production & ERP Command",
+    "approvedAt": "2026-11-11T10:06:34.253Z",
+    "permissions": [
+      "VIEW_TWIN",
+      "CONTROL_CONVEYOR",
+      "LOG_QC",
+      "ERP_MRP_CONFIG"
+    ],
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "role": "PLANT_SUPERVISOR",
+    "updatedAt": "2026-11-11T17:28:38.530Z",
+    "roleTitle": "Production Cell Supervisor (ERP/MRP Lead)",
+    "status": "APPROVED",
+    "name": "Debashis Roy",
+    "createdAt": "2026-11-11T10:06:34.219Z",
+    "password": "500c516643ec417c2a07aaa3813a710a9237aac6139569c6e415d0e65668ff18"
+  },
+  {
+    "id": "usr-mwce5ksa",
+    "status": "APPROVED",
+    "email": "arindambiswas682004@gmail.com",
+    "badgeId": "ME-OPR-4477",
+    "organisationId": "iiests-mech",
+    "organisationName": "Mechanical Engg. Dept., IIESTS",
+    "updatedAt": "2026-11-11T17:28:38.530Z",
+    "name": "Arindam Biswas",
+    "approvedBy": "sayandipmallickclassf@gmail.com",
+    "permissions": [
+      "VIEW_TWIN",
+      "AUDIT_SCRAP",
+      "REWORK_ROUTING",
+      "EXPORT_TRACEABILITY"
+    ],
+    "approvedAt": "2026-11-11T17:28:38.517Z",
+    "createdAt": "2026-11-11T17:26:53.818Z",
+    "department": "Quality Control",
+    "role": "QUALITY_ENGINEER",
+    "roleTitle": "Quality Assurance Inspector",
+    "password": "e09a77530a80ce27ac4a0620adec6a2938ec7856180e5e1188df70eecef10a8c"
   }
 ]

@@ -258,6 +258,7 @@ export const apiClient = {
 
   /**
    * Admin: Updates an employee's details (wage, station, shift, role, certification)
+   * or creates a new employee if empId is 'new' or not found.
    */
   async updateEmployee(
     empId: string,
@@ -267,14 +268,17 @@ export const apiClient = {
     adminPasscode?: string
   ): Promise<{ success: boolean; message: string; employee?: Employee }> {
     try {
-      const res = await fetch(`/api/admin/employees/${empId}`, {
-        method: 'PUT',
+      const url = empId && empId !== 'new' ? `/api/admin/employees/${empId}` : '/api/admin/employees';
+      const method = empId && empId !== 'new' ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           'x-admin-auth': adminBadge || adminEmail || ADMIN_EMAIL,
         },
         body: JSON.stringify({
           updates,
+          employee: { ...updates, id: empId !== 'new' ? empId : undefined },
           adminEmail: adminEmail || ADMIN_EMAIL,
           adminBadge,
           adminPasscode,
@@ -362,6 +366,69 @@ export const apiClient = {
       return data.auditLogs || [];
     } catch {
       return [];
+    }
+  },
+
+  /**
+   * Server-authoritative control of the Production Live Digital Twin.
+   * Action can be: START, PAUSE, RESET, or ADVANCE_DAY.
+   * Only designated system administrators may invoke this.
+   */
+  async controlProductionTwin(
+    action: 'START' | 'PAUSE' | 'RESET' | 'ADVANCE_DAY',
+    orgId: string = 'iiests-mech',
+    adminEmail?: string,
+    adminBadge?: string,
+    options?: any
+  ): Promise<{ success: boolean; state?: any; message?: string }> {
+    try {
+      const res = await fetch('/api/twin/control', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-auth': adminBadge || adminEmail || ADMIN_EMAIL,
+        },
+        body: JSON.stringify({
+          orgId,
+          action,
+          adminEmail: adminEmail || ADMIN_EMAIL,
+          adminBadge,
+          options,
+        }),
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, message: e.message || 'Failed to control digital twin' };
+    }
+  },
+
+  /**
+   * Retrieves the current dynamic Daily Shift Report for an organization
+   */
+  async getDailyShiftReport(orgId: string = 'iiests-mech'): Promise<any | null> {
+    try {
+      const res = await fetch(`/api/twin/daily-shift-report?orgId=${encodeURIComponent(orgId)}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.report || null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Saves / updates the Daily Shift Report for an organization
+   */
+  async saveDailyShiftReport(orgId: string = 'iiests-mech', report: any): Promise<boolean> {
+    try {
+      const res = await fetch('/api/twin/daily-shift-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId, report }),
+      });
+      return res.ok;
+    } catch {
+      return false;
     }
   },
 

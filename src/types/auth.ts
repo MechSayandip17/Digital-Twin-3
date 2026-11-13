@@ -173,7 +173,13 @@ export interface AdminAuditLog {
     | 'PASSWORD_RESET_REJECTED'
     | 'SIMULATION_RESET'
     | 'SIMULATION_STOPPED'
+    | 'SIMULATION_START'
+    | 'SIMULATION_PAUSE'
+    | 'ADVANCE_DAY'
+    | 'EMPLOYEE_UPDATED'
+    | 'PARAMETER_MODIFIED'
     | 'USER_REGISTERED';
+
   adminEmail: string;
   adminBadge: string;
   adminName: string;

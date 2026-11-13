@@ -24,7 +24,11 @@ import {
   getEmployees,
   saveEmployees,
   updateEmployee,
+  controlTenantSimulation,
+  getDailyShiftReport,
+  saveDailyShiftReport,
 } from './src/server/db.js';
+
 import { ADMIN_EMAIL } from './src/types/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -250,6 +254,34 @@ async function startServer() {
     }
   });
 
+  // 5d-2. Workforce Employees: Add new employee (Admin Protected)
+  app.post('/api/admin/employees', async (req: Request, res: Response) => {
+    try {
+      const { employee, adminEmail, adminBadge, adminPasscode } = req.body;
+      const headerAuth = (req.headers['x-admin-auth'] as string);
+      const actor = adminBadge || adminEmail || headerAuth;
+
+      if (!isAuthorizedAdmin(actor, adminPasscode)) {
+        return res.status(403).json({
+          success: false,
+          error: 'SECURITY VIOLATION: Only the 4 Designated System Administrators can add employee records.',
+        });
+      }
+
+      const empData = employee || req.body;
+      const result = await updateEmployee(
+        empData.id || `emp-${Date.now()}`,
+        empData,
+        adminEmail || ADMIN_EMAIL,
+        adminBadge || 'ADMIN'
+      );
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+
   // 3b. User Password Reset (Forgot Password Application - Requires Administrator Verification)
   app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
     try {
@@ -473,6 +505,58 @@ async function startServer() {
       res.status(500).json({ success: false, error: err.message });
     }
   });
+
+  // 8b. Server-Authoritative Digital Twin Control (Start, Pause, Reset, Advance Day)
+  app.post('/api/twin/control', async (req: Request, res: Response) => {
+    try {
+      const { action, orgId = 'iiests-mech', adminEmail, adminBadge, adminPasscode, options } = req.body;
+      const headerAuth = (req.headers['x-admin-auth'] as string);
+      const actor = adminBadge || adminEmail || headerAuth;
+
+      if (!isAuthorizedAdmin(actor, adminPasscode)) {
+        return res.status(403).json({
+          success: false,
+          error: 'SECURITY VIOLATION: Only the 4 Designated System Administrators can control the Production Twin timer, pause/start, reset, or advance shift.',
+        });
+      }
+
+      const result = await controlTenantSimulation(
+        orgId,
+        action,
+        adminEmail || ADMIN_EMAIL,
+        adminBadge || 'ADMIN',
+        options
+      );
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 8c. Daily Shift Report: Realtime dynamic retrieval & synchronization
+  app.get('/api/twin/daily-shift-report', async (req: Request, res: Response) => {
+    try {
+      const orgId = (req.query.orgId as string) || 'iiests-mech';
+      const report = await getDailyShiftReport(orgId);
+      res.json({ success: true, report });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/twin/daily-shift-report', async (req: Request, res: Response) => {
+    try {
+      const { orgId = 'iiests-mech', report } = req.body;
+      if (!report) {
+        return res.status(400).json({ success: false, error: 'report object is required' });
+      }
+      await saveDailyShiftReport(orgId, report);
+      res.json({ success: true, message: 'Daily shift report synced to server and cloud database.' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
 
   // 9. Plant CoPilot AI route (Grounded Diagnostic)
   app.post('/api/gemini/chat', async (req: Request, res: Response) => {

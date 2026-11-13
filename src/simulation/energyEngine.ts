@@ -211,8 +211,10 @@ export function calculatePlantEnergyAnalytics(
   let assemblyPackagingKw = 0;
   let coolingHvacPowerKw = 0;
 
-  for (const st of Object.values(stations)) {
-    if (st.isQueue || st.type === 'sink_dispatch' || st.type === 'truck_source') continue;
+  const validStations = stations && typeof stations === 'object' ? Object.values(stations) : [];
+
+  for (const st of validStations) {
+    if (!st || st.isQueue || st.type === 'sink_dispatch' || st.type === 'truck_source') continue;
     
     const profile = calculateStationEnergyProfile(st, isShiftOpen, isLunchBreak, simulatedSecondsOfDay);
     stationProfiles[st.id] = profile;

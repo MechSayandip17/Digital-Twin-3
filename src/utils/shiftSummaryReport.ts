@@ -134,21 +134,31 @@ export function generateShiftSummaryReport(
   state: PlantSimulationState,
   energy: PlantEnergyAnalytics
 ): ShiftSummaryReport {
-  const config = state.config;
+  const config = state?.config || {
+    simulatedSecondsOfDay: 8 * 3600,
+    shiftStartHour: 8,
+    shiftDurationHours: 8,
+    isShiftOpen: true,
+    dailyTargetUnits: 360,
+    arrearsUnits: 0,
+  } as any;
   const currentHour = (config.simulatedSecondsOfDay / 3600) % 24;
   const shiftEnd = config.shiftStartHour + config.shiftDurationHours;
   const isShiftEnded = currentHour >= shiftEnd || !config.isShiftOpen;
 
-  const fulfillment = Math.round((state.completedCount / Math.max(1, config.dailyTargetUnits)) * 100);
-  const arrearsTodayDeficit = Math.max(0, config.dailyTargetUnits - state.completedCount);
+  const completedCount = state?.completedCount || 0;
+  const fulfillment = Math.round((completedCount / Math.max(1, config.dailyTargetUnits)) * 100);
+  const arrearsTodayDeficit = Math.max(0, config.dailyTargetUnits - completedCount);
 
   // Equipment health breakdown
   const equipmentSummaries: ShiftEquipmentHealthSummary[] = [];
   const criticalEquipmentList: ShiftEquipmentHealthSummary[] = [];
   let totalFleetRulReduction = 0;
 
-  for (const st of Object.values(state.stations)) {
-    if (st.isQueue || st.type === 'truck_source' || st.type === 'sink_dispatch') continue;
+  const stationList = state?.stations && typeof state.stations === 'object' ? Object.values(state.stations) : [];
+
+  for (const st of stationList) {
+    if (!st || st.isQueue || st.type === 'truck_source' || st.type === 'sink_dispatch') continue;
 
     const ml = st.mlResult;
     const hasFault = st.activeFault !== 'NONE';
